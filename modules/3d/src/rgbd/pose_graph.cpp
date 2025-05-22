@@ -429,7 +429,7 @@ bool PoseGraphImpl::isValid() const
         size_t currNodeId = nodesToVisit.back();
         nodesToVisit.pop_back();
         nodesVisited.insert(currNodeId);
-        // Since each node does not maintain its neighbor list
+        // Since each node does not maintain its neighbor list#
         for (size_t i = 0; i < numEdges; i++)
         {
             const Edge& potentialEdge = edges.at(i);
@@ -854,6 +854,90 @@ public:
 
         return true;
     }
+
+    double calculateWeight(const Edge& edge){
+        // Extract pose difference (rotation + translation)
+        cv::Vec3d t = edge.pose.translation;
+        cv::Matx33d R = edge.pose.rotation;
+
+        // Compute angle from rotation matrix
+        double angle = std::acos((cv::trace(R)[0] - 1.0) / 2.0);
+        if (std::isnan(angle)) angle = 0.0; // fallback
+
+        // Weighted translational and rotational norm
+        double transNorm = cv::norm(t);
+        double poseNorm = transNorm + angle;
+
+        // Use information matrix magnitude as confidence
+        cv::Matx66f info = edge.sqrtInfo * edge.sqrtInfo.t();
+        double infoNorm = cv::norm(info);
+
+        // Final weight (inverse of confidence)
+        double weight = poseNorm / (infoNorm + 1e-6); // avoid division by 0
+    }
+
+    
+    vector<PoseEdge> buildMST(PoseGraph& graph)
+    {
+    size_t numNodes = getNumNodes();
+    size_t numEdges = getNumEdges();
+
+    if (!numNodes || !numEdges)
+        return false;
+
+    std::unordered_set<size_t> nodesVisited;
+    std::vector<size_t> nodesToVisit;
+    std::vector<size_t> parent;
+    std::vector<size_t> min_dist;
+    std::vector<size_t> mst;
+
+    nodesToVisit.push_back(nodes.begin()->first);
+    mst.push_back(nodes.begin()->first);
+    //bool isGraphConnected = false;
+    while (!nodesToVisit.empty())
+    {
+        size_t visited = nodesVisited.size()
+        double w = ;
+        for (size_t i = 0; i < visited; i++) //node with lowest key
+        {
+            if( < w)
+            {
+
+            }
+        }
+        nodesToVisit.erase()
+        size_t currNodeId = nodesToVisit.back();
+        nodesToVisit.pop_back();
+        nodesVisited.insert(currNodeId);
+        // Since each node does not maintain its neighbor list
+        for (size_t i = 0; i < numEdges; i++)
+        {
+            const Edge& potentialEdge = edges.at(i);
+            size_t nextNodeId = (size_t)(-1);
+
+            size_t weight = 0;
+            if (potentialEdge.sourceNodeId == currNodeId)
+            {
+                nextNodeId = potentialEdge.targetNodeId;
+            }
+            else if (potentialEdge.targetNodeId == currNodeId)
+            {
+                nextNodeId = potentialEdge.sourceNodeId;
+            }
+            if (nextNodeId != (size_t)(-1))
+            {
+                if (nodesVisited.count(nextNodeId) == 0)
+                {
+                    nodesToVisit.push_back(nextNodeId);
+                }
+            }
+        }
+    }
+        
+
+    
+    }
+    
 
     virtual const Mat_<double> getDiag() CV_OVERRIDE
     {
