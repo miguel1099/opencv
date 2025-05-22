@@ -429,7 +429,7 @@ bool PoseGraphImpl::isValid() const
         size_t currNodeId = nodesToVisit.back();
         nodesToVisit.pop_back();
         nodesVisited.insert(currNodeId);
-        // Since each node does not maintain its neighbor list#
+        // Since each node does not maintain its neighbor list
         for (size_t i = 0; i < numEdges; i++)
         {
             const Edge& potentialEdge = edges.at(i);
@@ -855,14 +855,15 @@ public:
         return true;
     }
 
-    double calculateWeight(const Edge& edge){
+    double calculateWeight(const PoseGraphImpl::Edge& edge){
         // Extract pose difference (rotation + translation)
         cv::Vec3d t = edge.pose.translation;
         cv::Matx33d R = edge.pose.rotation;
 
         // Compute angle from rotation matrix
         double angle = std::acos((cv::trace(R)[0] - 1.0) / 2.0);
-        if (std::isnan(angle)) angle = 0.0; // fallback
+        if (std::isnan(angle)) 
+            angle = 0.0; // fallback
 
         // Weighted translational and rotational norm
         double transNorm = cv::norm(t);
@@ -874,64 +875,135 @@ public:
 
         // Final weight (inverse of confidence)
         double weight = poseNorm / (infoNorm + 1e-6); // avoid division by 0
+        return weight;
     }
 
     
-    vector<PoseEdge> buildMST(PoseGraph& graph)
+    vector<PoseEdge> buildMST(PoseGraphImpl& pl)
     {
-    size_t numNodes = getNumNodes();
-    size_t numEdges = getNumEdges();
+    // this->numNodes = pg->getNumNodes();
+    // this->numEdges = pg->getNumEdges();
+
+    // // Allocate indices for nodes
+    // for (const auto& ni : pg->nodes)
+    // {
+    //     if (!ni.second.isFixed)
+    //     {
+    //         this->idToPlace[ni.first] = this->placesIds.size();
+    //         this->placesIds.push_back(ni.first);
+    //     }
+    // }
+
+    // this->nVarNodes = this->placesIds.size();
+    // if (!this->nVarNodes)
+    // {
+    //     CV_Error(cv::Error::Code::StsBadArg, "PoseGraph contains no non-constant nodes, skipping optimization");
+    // }
+
+    // if (!this->numEdges)
+    // {
+    //     CV_Error(cv::Error::Code::StsBadArg, "PoseGraph has no edges, no optimization to be done");
+    // }
+
+    // CV_LOG_INFO(NULL, "Optimizing PoseGraph with " << this->numNodes << " nodes and " << this->numEdges << " edges");
+
+    // this->nVars = this->nVarNodes * 6;
+    size_t numNodes = pg->getNumNodes();
+    size_t numEdges = pg->getNumEdges();
 
     if (!numNodes || !numEdges)
         return false;
 
-    std::unordered_set<size_t> nodesVisited;
-    std::vector<size_t> nodesToVisit;
-    std::vector<size_t> parent;
-    std::vector<size_t> min_dist;
+    // std::unordered_set<size_t> nodesVisited;
+    // std::vector<size_t> nodesToVisit;
+    // std::map<size_t, size_t> parent;
+    // std::map<size_t, double> min_dist;
     std::vector<size_t> mst;
+    std::vector<PoseGraphImpl::Edge> edge_list;
 
-    nodesToVisit.push_back(nodes.begin()->first);
-    mst.push_back(nodes.begin()->first);
-    //bool isGraphConnected = false;
-    while (!nodesToVisit.empty())
+
+    double max_w;
+    //std::vector<size_t, size_t, cv::Matx<double>> weights;
+    //std::vector<std::tuple<double,size_t,size_t>> weights;
+    std::map< PoseGraphImpl::Edge,double> weights;
+    //PoseGraphImpl::Edge min_e;//
+    for (const auto& e : pg->edges)
     {
-        size_t visited = nodesVisited.size()
-        double w = ;
-        for (size_t i = 0; i < visited; i++) //node with lowest key
-        {
-            if( < w)
-            {
 
-            }
-        }
-        nodesToVisit.erase()
-        size_t currNodeId = nodesToVisit.back();
-        nodesToVisit.pop_back();
-        nodesVisited.insert(currNodeId);
-        // Since each node does not maintain its neighbor list
-        for (size_t i = 0; i < numEdges; i++)
-        {
-            const Edge& potentialEdge = edges.at(i);
-            size_t nextNodeId = (size_t)(-1);
+        double w = calculateWeight(e);
+        weights.insert((w,e.sourceNodeId,e.targetNodeId));
+        // if(w < min_w){//mais sentido no krustal
+        //     min_e = e;
+        // }
+        if(w > max_w)
+            max_w = w;
+    }
 
-            size_t weight = 0;
-            if (potentialEdge.sourceNodeId == currNodeId)
-            {
-                nextNodeId = potentialEdge.targetNodeId;
-            }
-            else if (potentialEdge.targetNodeId == currNodeId)
-            {
-                nextNodeId = potentialEdge.sourceNodeId;
-            }
-            if (nextNodeId != (size_t)(-1))
-            {
-                if (nodesVisited.count(nextNodeId) == 0)
-                {
-                    nodesToVisit.push_back(nextNodeId);
+    // nodesToVisit.push_back(nodes.begin()->first);
+    // mst.push_back(nodes.begin()->first);
+    mst.push_back(nodes.begin()->first);
+
+    for(int i = 0; i < numNodes - 1; i++)
+    {
+        size_t vertex;
+        PoseGraphImpl::Edge min_edge;
+        double min_weight = max_w;
+        for (const auto& e : pg->edges) //node with lowest key
+        {
+            if((mst.find(e.sourceNodeId) != -1 && mst.find(e.targetNodeId) == -1) ) {//find returns -1 tenho de ver overloads
+                double edge_weight = calculateWeight(e);
+                if(edge_weight < min_weight){
+                    min_weight = edge_weight;
+                    min_edge = e;
+                    vertex = e.targetNodeId; 
                 }
+
             }
+            else if(mst.find(e.sourceNodeId) == -1 && mst.find(e.targetNodeId) != -1){
+                double edge_weight = calculateWeight(e);
+                if(key + edge_weight < min_weight){
+                    min_weight = edge_weight;
+                    min_edge = e;
+                    vertex = e.sourceNodeId;
+                }
+            } 
+            else
+                continue;
         }
+        //ver se existe um edge??
+        edge_list.push_back(e);
+        mst.push_back(vertex);
+        
+        //nodesToVisit.erase(vertex);
+        
+        // nodesToVisit.erase()
+        // size_t currNodeId = nodesToVisit.back();
+        // nodesToVisit.pop_back();
+        // nodesVisited.insert(currNodeId);
+        // Since each node does not maintain its neighbor list
+        // for (size_t i = 0; i < numEdges; i++)
+        // {
+        //     const Edge& potentialEdge = edges.at(i);
+        //     size_t nextNodeId = (size_t)(-1);
+
+        //     size_t weight = 0;
+        //     if (potentialEdge.sourceNodeId == currNodeId)
+        //     {
+        //         nextNodeId = potentialEdge.targetNodeId;
+        //     }
+        //     else if (potentialEdge.targetNodeId == currNodeId)
+        //     {
+        //         nextNodeId = potentialEdge.sourceNodeId;
+        //     }
+        //     if (nextNodeId != (size_t)(-1))
+        //     {
+        //         if (nodesVisited.count(nextNodeId) == 0)
+        //         {
+        //             nodesToVisit.push_back(nextNodeId);
+        //         }
+        //     }
+        // }
+        return edge_list;
     }
         
 
