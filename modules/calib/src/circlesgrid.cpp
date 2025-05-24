@@ -1661,21 +1661,15 @@ size_t CirclesGridFinder::getFirstCorner(std::vector<Point> &largeCornerIndices,
 
 
 
-void primMST(Graph& g, const cv::Mat& weightMat, std::vector<std::pair<size_t,size_t>& edges)
+void primMST(Graph& g, const cv::Mat& weightMat, std::vector<std::pair<size_t,size_t>>& edges)
 {
-  const int infinity = -1;
   size_t num_vert = g.getVerticesCount();
   size_t num_edg = edges.size();
   size_t min_total_weight = 0;
   std::vector<size_t> mst;
   std::vector<bool> inMST(num_vert, false);
-  std::vector<int> parent(num_vert, -1)
-  std::vector<double> minDist(V, std::numeric_limits<double>::max());
   std::vector<std::pair<int,int>> mstedges;
-  // g
-  // cv::detail::PoseGrap
-  // std::set<size_t> vertex;
-  minDist[0] = 0;
+ 
   for (size_t iter = 0; iter < num_vert; iter++)
   {
     int u = -1;
@@ -1683,7 +1677,8 @@ void primMST(Graph& g, const cv::Mat& weightMat, std::vector<std::pair<size_t,si
     for(size_t i = 0; i < num_vert; i++)
     {//nao dara para fazer outra coisa tipo so sobre os vertices que faltsm
       std::numeric_limits<double> val;
-      if(min[i] < minDist[i] && u > 0)
+      weightMat.at<int> ((int), (int)) 
+      if(weightMat[] < val && u > 0)
       {//!!inMST[j] && 
         u = i;
         
