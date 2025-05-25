@@ -857,13 +857,15 @@ public:
 
     double calculateWeight(const PoseGraphImpl::Edge& edge){
         // Extract pose difference (rotation + translation)
-        cv::Vec3d t = edge.pose.translation;
-        cv::Matx33d R = edge.pose.rotation;
+         cv::Vec3d t = edge.pose.t;
+        cv::Matx33d R = edge.pose.q.toRotMat3x3();
 
         // Compute angle from rotation matrix
-        double angle = std::acos((cv::trace(R)[0] - 1.0) / 2.0);
+        cv::Scalar s = cv::trace(R);
+        double trace = s[0];
+        double angle = std::acos(std::clamp((trace - 1.0) / 2.0, -1.0, 1.0));
         if (std::isnan(angle)) 
-            angle = 0.0; // fallback
+            angle = 0.0; 
 
         // Weighted translational and rotational norm
         double transNorm = cv::norm(t);
@@ -879,31 +881,33 @@ public:
     }
 
     
-    vector<PoseEdge> buildMST(PoseGraphImpl& pg)
+    std::vector<PoseGraphImpl::Edge> buildMST(PoseGraphImpl& pgraph)
     {
-        size_t numNodes = pg->getNumNodes();
-        size_t numEdges = pg->getNumEdges();
+        size_t nNodes = pgraph.getNumNodes();
+        size_t nEdges = pgraph.getNumEdges();
 
-        if (!numNodes || !numEdges)
-            return false;
+        if (nNodes == 0 || nEdges == 0)
+            return {};
 
         // std::unordered_set<size_t> nodesVisited;
         // std::vector<size_t> nodesToVisit;
         // std::map<size_t, size_t> parent;
         // std::map<size_t, double> min_dist;
-        std::vector<size_t> mst;
+        std::unordered_set<size_t> mst;
         std::vector<PoseGraphImpl::Edge> edge_list;
 
         double max_w;
         //std::vector<size_t, size_t, cv::Matx<double>> weights;
         //std::vector<std::tuple<double,size_t,size_t>> weights;
-        std::map<PoseGraphImpl::Edge,double> weights;
+        //std::map<PoseGraphImpl::Edge,double> weights;
+        std::map<std::pair<size_t, size_t>, double> weights;
         //PoseGraphImpl::Edge min_e;//
-        for (const auto& e : pg->edges)
+        for (const auto& e : pgraph.edges)
         {
 
             double w = calculateWeight(e);
-            weights.insert((w,e.sourceNodeId,e.targetNodeId));
+            weights[{e.sourceNodeId, e.targetNodeId}] = w;
+            //weights.insert((w,e.sourceNodeId,e.targetNodeId));
             // if(w < min_w){//mais sentido no krustal
             //     min_e = e;
             // }
@@ -913,29 +917,30 @@ public:
 
         // nodesToVisit.push_back(nodes.begin()->first);
         // mst.push_back(nodes.begin()->first);´
-        PoseGraphImpl::Node first;
-        for(const auto& n : pg->nodes){
+        //PoseGraphImpl::Node first;
+        for(const auto& n : pgraph.nodes){
             if(n.second.isFixed){
-                first = n.second;
-                mst.push_back(n.first);
+                //first = n.second;
+                mst.insert(n.first);
                 break;
             }
         }
         
         if(mst.empty())
         {
-            first = pg->nodes.begin.n.second;
-            mst.push_back(pg->nodes.begin.n.first);
+            //first = pgraph.nodes.begin().n.second;
+            mst.insert(pgraph.nodes.begin()->first);
         }
     //mst.push_back(nodes.begin()->first);
-        for(int i = 0; i < numNodes - 1; i++)
+        for(size_t i = 0; i < nNodes - 1; i++)
         {
             size_t vertex;
-            PoseGraphImpl::Edge min_edge;
+            //PoseGraphImpl::Edge min_edge;
+            PoseGraphImpl::Edge min_edge(0, 0, Affine3f(), Matx66f::zeros());
             double min_weight = max_w;
             for (const auto& e : pg->edges) //node with lowest key
             {
-                if((mst.find(e.sourceNodeId) != -1 && mst.find(e.targetNodeId) == -1))
+                if(mst.count(e.sourceNodeId) && !mst.count(e.targetNodeId))
                 {//find returns -1 tenho de ver overloads
                     double edge_weight = calculateWeight(e);
                     if(edge_weight < min_weight){
@@ -945,7 +950,7 @@ public:
                     }
 
                 }
-                else if(mst.find(e.sourceNodeId) == -1 && mst.find(e.targetNodeId) != -1){
+                else if(!mst.count(e.sourceNodeId) && ms.count(e.targetNodeId)){
                     double edge_weight = calculateWeight(e);
                     if(edge_weight < min_weight){
                         min_weight = edge_weight;
@@ -955,28 +960,29 @@ public:
                 } 
                 else
                     continue;
+                edge_list.push_back(e);
             }
             //ver se existe um edge??
-            edge_list.push_back(e);
-            mst.push_back(vertex);
+            
+            mst.insert(vertex);
 
             return edge_list;        
         }    
     }
 
-    void apply(std::vector<PoseGraphImpl::Edge> edge_list){
-        PoseGraphImpl::Node first;
-        bool root;
-        for(const auto& n : pg->nodes){
-            if(n.second.isFixed){
-                first = n.second;
+    void applyMST(PoseGraphImpl& pgraph, const std::vector<PoseGraphImpl::Edge>& edge_list){
+        PoseGraphImpl::Node rootNode(0, Affine3d()); 
+        bool root = false;
+        for (const auto& [id, node] : pgraph.nodes) {
+            if (node.isFixed) {
+                rootNode = node;
                 root = true;
                 break;
             }
         }
         
         if(!root)
-            first = pg->nodes.begin.n.second;
+            rootNode = pgraph.nodes.begin()->second;
         
         std::unordered_map<size_t, std::vector<std::pair<size_t, PoseGraphImpl::Pose3d>>> adj;
         for (const auto& edge : edge_list) {
@@ -986,7 +992,7 @@ public:
         }
 
         std::unordered_map<size_t, PoseGraphImpl::Pose3d> globalPoses;
-        size_t rootId = first.id;  // your fixed node ID
+        size_t rootId = rootNode.id;  // your fixed node ID
         globalPoses[rootId] = PoseGraphImpl::Pose3d();  // identity
 
         std::stack<size_t> toVisit;
@@ -998,7 +1004,8 @@ public:
             toVisit.pop();
             visited.insert(current);
 
-            const PoseGraphImpl::Pose3d& currentPose = globalPoses[current];
+            //const PoseGraphImpl::Pose3d& currentPose = globalPoses[current];
+            const auto& currentPose = globalPoses[current];
 
             for (const auto& [neighbor, relativePose] : adj[current]) {
                 if (visited.count(neighbor))
@@ -1012,10 +1019,10 @@ public:
 
         for (const auto& [nodeId, pose] : globalPoses)
         {
-            if(!pg->nodes.at(nodeId).isFixed)
+            if(!pgraph.nodes.at(nodeId).isFixed)
             {
                 Affine3d poseAffine = pose.getAffine();        
-                pg->nodes.at(nodeId).setPose(poseAffine);
+                pgraph.nodes.at(nodeId).setPose(poseAffine);
             }
         }
         // std::vector<size_t> aplplied_pose;

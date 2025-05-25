@@ -155,6 +155,129 @@ TEST(PoseGraph, sphereG2O)
     }
 }
 
+TEST(PoseGraph, MSTInitialization)
+{
+    Ptr<detail::PoseGraph> pg = detail::PoseGraph::create();
+
+    // Define a simple triangle graph
+    Affine3d identity;
+    Affine3d transX(Vec3d(1, 0, 0));
+    Affine3d transY(Vec3d(0, 1, 0));
+
+    pg->addNode(0, identity, true); // fixed node
+    pg->addNode(1, Affine3d(), false);
+    pg->addNode(2, Affine3d(), false);
+
+    Matx66d info = Matx66d::eye();
+
+    pg->addEdge(0, 1, transX, info); // shortest
+    pg->addEdge(1, 2, transY, info); // shortest
+    pg->addEdge(0, 2, transX * transY, info); // longer edge, not in MST
+
+    // Step 1: compute MST (expected path is 0->1->2)
+    pg->buildMST();
+
+    std::map<size_t, Affine3d> expected;
+    expected[0] = identity;
+    expected[1] = transX;
+    expected[2] = transX * transY;
+
+    // Step 2: Reconstruct node poses using MST
+    pg->initializePosesFromMST();
+
+    for (auto& kv : expected)
+    {
+        Affine3d pose = pg->getNodePose(kv.first);
+        Mat diff = kv.second.matrix - pose.matrix;
+        double norm = normL2Sqr(diff);
+        EXPECT_LE(norm, 1e-6) << "Pose for node " << kv.first << " differs from expected";
+    }
+
+    // Step 3: Optionally, skip full optimization
+    // pg->createOptimizer(...); pg->optimize();
+
+    if (cvtest::debugLevel > 0)
+    {
+        Mesh result = drawPoseGraph(pg);
+        writeObj("pg_mst_init.obj", result);
+    }
+}
+
+TEST(PoseGraphTest, BuildMSTTest) {
+    Ptr<detail::PoseGraph> pg = detail::PoseGraph::create();
+
+    // Add 20 nodes: node 0 is fixed
+    pg->addNode(0, Affine3d(), true);
+    for (int i = 1; i < 20; ++i) {
+        pg->addNode(i, Affine3d(), false);
+    }
+
+    Matx66f sqrtInfo = Matx66f::eye();
+
+    // Create 50 random edges, favoring sequential links but with redundancy
+    for (int i = 0; i < 19; ++i) {
+        Vec3d trans(1 + (i % 3), 0, 0);
+        Affine3d pose(trans);
+        pg->addEdge(i, i + 1, pose, sqrtInfo); // Core chain
+    }
+
+    // Add redundant and long-range connections
+    for (int i = 0; i < 30; ++i) {
+        int a = rand() % 20;
+        int b = rand() % 20;
+        if (a != b) {
+            Vec3d trans((double)(rand() % 5), (double)(rand() % 3), 0);
+            Affine3d pose(trans);
+            pg->addEdge(a, b, pose, sqrtInfo);
+        }
+    }
+
+    std::vector<PoseGraphImpl::Edge> mst = buildMST(*pg);
+    //std::vector<PoseEdge>  mst = buildMST(*pg);
+
+    // A tree with 20 nodes should have exactly 19 edges
+    ASSERT_EQ(mst.size(), 19);
+}
+
+TEST(PoseGraphTest, ApplyGlobalPoseTest) {
+    Ptr<detail::PoseGraph> pg = detail::PoseGraph::create();
+
+    // Add 5 nodes: node 0 is fixed
+    pg->addNode(0, Affine3d(), true);
+    for (int i = 1; i < 5; ++i) {
+        pg->addNode(i, Affine3d(), false);
+    }
+
+    // Define edges (linear chain)
+    Matx66f sqrtInfo = Matx66f::eye();
+    std::vector<PoseGraphImpl::Edge> edge_list;
+
+    for (int i = 0; i < 4; ++i) {
+        PoseGraphImpl::Edge edge;
+        edge.sourceNodeId = i;
+        edge.targetNodeId = i + 1;
+        edge.pose.translation = Vec3d(1, 0, 0);
+        edge.pose.rotation = Matx33d::eye();
+        edge.sqrtInfo = sqrtInfo;
+        edge_list.push_back(edge);
+    }
+
+    pg->edges = edge_list;
+
+    // Apply global pose propagation
+    apply(edge_list);
+
+    // Expected positions: node i at (i, 0, 0)
+    for (int i = 0; i < 5; ++i) {
+        Vec3d expected(i, 0, 0);
+        Vec3d actual = pg->getNodePose(i).translation();
+        ASSERT_NEAR(actual[0], expected[0], 1e-6);
+        ASSERT_NEAR(actual[1], expected[1], 1e-6);
+        ASSERT_NEAR(actual[2], expected[2], 1e-6);
+    }
+}
+
+
 // ------------------------------------------------------------------------------------------
 
 // Wireframe meshes for debugging visualization purposes
