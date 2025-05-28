@@ -354,6 +354,10 @@ public:
     // Returns number of iterations elapsed or -1 if max number of iterations was reached or failed to optimize
     virtual LevMarq::Report optimize() CV_OVERRIDE;
 
+    void applyMST(PoseGraphImpl& pgraph, const std::vector<PoseGraphImpl::Edge>& edge_list);
+    std::vector<PoseGraphImpl::Edge> buildMST(PoseGraphImpl& pgraph);
+    double calculateWeight(const PoseGraphImpl::Edge& edge);
+
     std::map<size_t, Node> nodes;
     std::vector<Edge> edges;
 
@@ -896,7 +900,7 @@ public:
         std::unordered_set<size_t> mst;
         std::vector<PoseGraphImpl::Edge> edge_list;
 
-        double max_w;
+        double max_w = std::numeric_limits<double>::min();
         //std::vector<size_t, size_t, cv::Matx<double>> weights;
         //std::vector<std::tuple<double,size_t,size_t>> weights;
         //std::map<PoseGraphImpl::Edge,double> weights;
@@ -938,11 +942,11 @@ public:
             //PoseGraphImpl::Edge min_edge;
             PoseGraphImpl::Edge min_edge(0, 0, Affine3f(), Matx66f::zeros());
             double min_weight = max_w;
-            for (const auto& e : pg->edges) //node with lowest key
+            for (const auto& e : pgraph.edges) //node with lowest key
             {
                 if(mst.count(e.sourceNodeId) && !mst.count(e.targetNodeId))
                 {//find returns -1 tenho de ver overloads
-                    double edge_weight = calculateWeight(e);
+                    double edge_weight = weights.at({e.sourceNodeId, e.targetNodeId});
                     if(edge_weight < min_weight){
                         min_weight = edge_weight;
                         min_edge = e;
@@ -950,9 +954,11 @@ public:
                     }
 
                 }
-                else if(!mst.count(e.sourceNodeId) && ms.count(e.targetNodeId)){
-                    double edge_weight = calculateWeight(e);
-                    if(edge_weight < min_weight){
+                else if(!mst.count(e.sourceNodeId) && mst.count(e.targetNodeId))
+                {
+                    double edge_weight = weights.at({e.sourceNodeId, e.targetNodeId});
+                    if(edge_weight < min_weight)
+                    {
                         min_weight = edge_weight;
                         min_edge = e;
                         vertex = e.sourceNodeId;
@@ -963,18 +969,19 @@ public:
                 edge_list.push_back(e);
             }
             //ver se existe um edge??
-            
-            mst.insert(vertex);
-
-            return edge_list;        
-        }    
+            mst.insert(vertex);      
+        } 
+        return edge_list;     
     }
 
-    void applyMST(PoseGraphImpl& pgraph, const std::vector<PoseGraphImpl::Edge>& edge_list){
+    void applyMST(PoseGraphImpl& pgraph, const std::vector<PoseGraphImpl::Edge>& edge_list)
+    {
         PoseGraphImpl::Node rootNode(0, Affine3d()); 
         bool root = false;
-        for (const auto& [id, node] : pgraph.nodes) {
-            if (node.isFixed) {
+        for (const auto& [id, node] : pgraph.nodes)
+        {
+            if (node.isFixed)
+            {
                 rootNode = node;
                 root = true;
                 break;
@@ -985,7 +992,8 @@ public:
             rootNode = pgraph.nodes.begin()->second;
         
         std::unordered_map<size_t, std::vector<std::pair<size_t, PoseGraphImpl::Pose3d>>> adj;
-        for (const auto& edge : edge_list) {
+        for (const auto& edge : edge_list)
+        {
             adj[edge.sourceNodeId].emplace_back(edge.targetNodeId, edge.pose);
             // Also add reverse edge with inverse pose
             adj[edge.targetNodeId].emplace_back(edge.sourceNodeId, edge.pose.inverse());
@@ -1007,7 +1015,8 @@ public:
             //const PoseGraphImpl::Pose3d& currentPose = globalPoses[current];
             const auto& currentPose = globalPoses[current];
 
-            for (const auto& [neighbor, relativePose] : adj[current]) {
+            for (const auto& [neighbor, relativePose] : adj[current])
+            {
                 if (visited.count(neighbor))
                     continue;
 
@@ -1025,17 +1034,6 @@ public:
                 pgraph.nodes.at(nodeId).setPose(poseAffine);
             }
         }
-        // std::vector<size_t> aplplied_pose;
-        // applied_pose.push_back(first.id);
-        // for(const auto& e : edge_list)
-        // {
-        //     if(applied_pose.find(e.sourceNodeId) != -1 && applied_pose.find(e.targetNodeId) == -1){
-        //         PoseGraphImpl::Node new_node;
-        //         new_node.id = e.targetNodeId;//
-        //         new_node.setPose();
-        //     }
-        //     //update the node pose
-        // }
     }
     
 
