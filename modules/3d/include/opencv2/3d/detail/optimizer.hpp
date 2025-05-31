@@ -95,7 +95,7 @@ public:
 // repeat the ones used in Ceres 3D Pose Graph Optimization:
 // http://ceres-solver.org/nnls_tutorial.html#other-examples, pose_graph_3d.cc bullet
 class CV_EXPORTS_W PoseGraph
-{
+{  
 public:
     static Ptr<PoseGraph> create();
     virtual ~PoseGraph();
@@ -132,6 +132,57 @@ public:
 
     // calculate cost function based on current nodes parameters
     virtual double calcEnergy() const = 0;
+};
+
+
+struct PoseGraphImpl;
+
+class CV_EXPORTS_W PoseGraphMST 
+{
+public:
+    virtual ~PoseGraphMST() = default;
+    explicit PoseGraphMST(cv::Ptr<PoseGraphImpl> pg);
+
+    
+    struct PoseGraphNodeData {
+        size_t id;
+        cv::Affine3d pose;
+        bool isFixed;
+    };
+
+    struct PoseGraphEdgeData {
+        size_t sourceNodeId;
+        size_t targetNodeId;
+        cv::Affine3f transformation;
+        cv::Matx66f information;
+    };
+
+    PoseGraphMST(const std::vector<PoseGraphNodeData>& nodes,
+                 const std::vector<PoseGraphEdgeData>& edges);
+
+    std::unique_ptr<detail::PoseGraph> createPoseGraphFromData(
+        const std::vector<PoseGraphNodeData>& nodes,
+        const std::vector<PoseGraphEdgeData>& edges);
+
+    void buildMST();
+    void applyMST();
+    virtual double calculateWeight(const PoseGraphEdgeData& edge);
+
+    size_t getNumNodes() const;
+    size_t getNumEdges() const;
+
+private:
+    cv::Ptr<PoseGraphImpl> pgraph;
+    std::vector<PoseGraphEdgeData> edge_list;
+
+    std::vector<size_t> placesIds; 
+    std::unordered_map<size_t, size_t> idToPlace;
+
+    size_t nVars;
+    size_t numNodes;
+    size_t numEdges;
+    size_t nVarNodes;
+    
 };
 
 }  // namespace detail
