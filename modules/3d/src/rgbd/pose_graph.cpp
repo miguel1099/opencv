@@ -972,11 +972,6 @@ PoseGraphMST::PoseGraphMST(cv::Ptr<PoseGraphImpl> pg):
                 this->idToPlace[nodeId] = this->placesIds.size();
                 this->placesIds.push_back(nodeId);
             }
-            // for (const auto& ni : pg->nodes) {
-            // if (!ni.second.isFixed) {
-            //     this->idToPlace[ni.first] = this->placesIds.size();
-            //     this->placesIds.push_back(ni.first);
-            // }}
         }
 
         this->nVarNodes = this->placesIds.size();
@@ -995,9 +990,42 @@ PoseGraphMST::PoseGraphMST(cv::Ptr<PoseGraphImpl> pg):
         this->nVars = this->nVarNodes * 6;
     }
 
-    // PoseGraphMST::PoseGraphMST(const std::vector<PoseGraphNodeData>& nodes,//////
-    //                         const std::vector<PoseGraphEdgeData>& edges): 
-    //     PoseGraphMST(static_cast<PoseGraphImpl*>(createPoseGraphFromData(nodes, edges).release())) {}
+    PoseGraphMST::PoseGraphMST(const std::vector<PoseGraphNodeData>& nodes,
+                            const std::vector<PoseGraphEdgeData>& edges): 
+        PoseGraphMST(static_cast<PoseGraphImpl*>(createPoseGraphFromData(nodes, edges).release())) {}
+
+    void PoseGraphMST::initializeFromPoseGraph(cv::Ptr<PoseGraphImpl> pg)
+    {
+        this->pgraph = pg;
+
+        if (!pg->isValid()) {
+            CV_Error(cv::Error::Code::StsBadArg, "Invalid PoseGraph that is either not connected or has invalid nodes");
+        }
+
+        this->numNodes = pg->getNumNodes();
+        this->numEdges = pg->getNumEdges();
+
+        std::vector<size_t> nodeIds = pg->getNodesIds();
+        for (size_t nodeId : nodeIds) {
+            if (!pg->isNodeFixed(nodeId)) {
+                this->idToPlace[nodeId] = this->placesIds.size();
+                this->placesIds.push_back(nodeId);
+            }
+        }
+
+        this->nVarNodes = this->placesIds.size();
+        if (!this->nVarNodes) {
+            CV_Error(cv::Error::Code::StsBadArg, "PoseGraph contains no non-constant nodes, skipping optimization");
+        }
+
+        if (!this->numEdges) {
+            CV_Error(cv::Error::Code::StsBadArg, "PoseGraph has no edges, no optimization to be done");
+        }
+
+        this->nVars = this->nVarNodes * 6;
+
+        CV_LOG_INFO(NULL, "Optimizing PoseGraph with " << this->numNodes << " nodes and " << this->numEdges << " edges");
+    }
 
     std::unique_ptr<detail::PoseGraph> PoseGraphMST::createPoseGraphFromData(
         const std::vector<PoseGraphNodeData>& nodes,
@@ -1014,8 +1042,26 @@ PoseGraphMST::PoseGraphMST(cv::Ptr<PoseGraphImpl> pg):
         return graph;
     }
 
+    cv::detail::PoseGraphMST PoseGraphMST::createPoseGraphMSTfromPoseGraph(const cv::Ptr<cv::detail::PoseGraph>& pg)
+    {
+        // Extract nodes data
+        std::vector<cv::detail::PoseGraphMST::PoseGraphNodeData> nodes;
+        for (auto nodeId : pg->getNodesIds())
+        {
+            nodes.push_back({nodeId, pg->getNodePose(nodeId), pg->isNodeFixed(nodeId)});
+        }
+
+        // Extract edges data
+        std::vector<cv::detail::PoseGraphMST::PoseGraphEdgeData> edges;
+        size_t nEdges = pg->getNumEdges();
+        for (size_t i = 0; i < nEdges; ++i)
+        {
+            edges.push_back({pg->getEdgeStart(i), pg->getEdgeEnd(i), pg->getEdgePose(i).cast<float>(), pg->getEdgeInfo(i)});
+        }
+        return cv::detail::PoseGraphMST(nodes, edges);
+    }
+
     double PoseGraphMST::calculateWeight(const PoseGraphEdgeData& e){
-        // const PoseGraphImpl::Edge* edge = static_cast<const PoseGraphImpl::Edge*>(edgePtr);
         PoseGraphImpl::Edge edge = edgeDataToEdgeImpl(e);
         // Extract pose difference (rotation + translation)
         cv::Vec3d t = edge.pose.t;
@@ -1054,7 +1100,7 @@ PoseGraphMST::PoseGraphMST(cv::Ptr<PoseGraphImpl> pg):
         std::map<std::pair<size_t, size_t>, double> weights;
         for (const auto& e : pgraph->edges)
         {
-            cv::detail::PoseGraphMST::PoseGraphEdgeData e_t = edgeImplToEdgeData(e);  
+            PoseGraphMST::PoseGraphEdgeData e_t = edgeImplToEdgeData(e);  
             double w = this->calculateWeight(e_t);
             std::pair<size_t, size_t> key(e.sourceNodeId, e.targetNodeId);
             std::pair<size_t, size_t> invkey(e.targetNodeId, e.sourceNodeId);
@@ -1067,7 +1113,6 @@ PoseGraphMST::PoseGraphMST(cv::Ptr<PoseGraphImpl> pg):
         {
             if(n.second.isFixed)
             {
-                //first = n.second;
                 mst.insert(n.first);
                 break;
             }
@@ -1075,10 +1120,9 @@ PoseGraphMST::PoseGraphMST(cv::Ptr<PoseGraphImpl> pg):
         
         if(mst.empty())
         {
-            //first = pgraph.nodes.begin().n.second;
             mst.insert(pgraph->nodes.begin()->first);
         }
-        //mst.push_back(nodes.begin()->first);
+
         for(size_t i = 0; i < nNodes - 1; i++)
         {
             size_t vertex;
@@ -1117,7 +1161,7 @@ PoseGraphMST::PoseGraphMST(cv::Ptr<PoseGraphImpl> pg):
             {
                 break;
             }
-            cv::detail::PoseGraphMST::PoseGraphEdgeData min_e_t = edgeImplToEdgeData(min_edge);  
+            PoseGraphMST::PoseGraphEdgeData min_e_t = edgeImplToEdgeData(min_edge);  
             edge_list.push_back(min_e_t);
             mst.insert(vertex);  
         }    
@@ -1150,8 +1194,8 @@ PoseGraphMST::PoseGraphMST(cv::Ptr<PoseGraphImpl> pg):
         }
 
         std::unordered_map<size_t, PoseGraphImpl::Pose3d> globalPoses;
-        size_t rootId = rootNode.id;  // your fixed node ID
-        globalPoses[rootId] = PoseGraphImpl::Pose3d();  // identity
+        size_t rootId = rootNode.id; 
+        globalPoses[rootId] = PoseGraphImpl::Pose3d();  
 
         std::stack<size_t> toVisit;
         toVisit.push(rootId);
@@ -1162,7 +1206,6 @@ PoseGraphMST::PoseGraphMST(cv::Ptr<PoseGraphImpl> pg):
             toVisit.pop();
             visited.insert(current);
 
-            //const PoseGraphImpl::Pose3d& currentPose = globalPoses[current];
             const auto& currentPose = globalPoses[current];
 
             for (const auto& [neighbor, relativePose] : adj[current])
@@ -1170,7 +1213,6 @@ PoseGraphMST::PoseGraphMST(cv::Ptr<PoseGraphImpl> pg):
                 if (visited.count(neighbor))
                     continue;
 
-                // Global pose = current global * relative
                 globalPoses[neighbor] = currentPose * relativePose;
                 toVisit.push(neighbor);
             }
@@ -1186,12 +1228,16 @@ PoseGraphMST::PoseGraphMST(cv::Ptr<PoseGraphImpl> pg):
         }
     }
 
+    std::vector<PoseGraphMST::PoseGraphEdgeData> PoseGraphMST::getEdgeList()
+    {
+        return edge_list;
+    }
     
-    size_t PoseGraphMST::getNumNodes() const //CV_OVERRIDE
+    size_t PoseGraphMST::getNumNodes() const 
     { 
         return numNodes; 
     }
-    size_t PoseGraphMST::getNumEdges() const //CV_OVERRIDE
+    size_t PoseGraphMST::getNumEdges() const 
     { 
         return numEdges; 
     }

@@ -166,12 +166,18 @@ public:
 
     void buildMST();
     void applyMST();
+
     virtual double calculateWeight(const PoseGraphEdgeData& edge);
 
+    static cv::detail::PoseGraphMST createPoseGraphMSTfromPoseGraph(const cv::Ptr<cv::detail::PoseGraph>& pg);
+
+    std::vector<PoseGraphEdgeData> getEdgeList();
     size_t getNumNodes() const;
     size_t getNumEdges() const;
 
 private:
+    void initializeFromPoseGraph(cv::Ptr<PoseGraphImpl> pg);
+
     cv::Ptr<PoseGraphImpl> pgraph;
     std::vector<PoseGraphEdgeData> edge_list;
 
