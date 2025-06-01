@@ -1061,29 +1061,16 @@ PoseGraphMST::PoseGraphMST(cv::Ptr<PoseGraphImpl> pg):
         return cv::detail::PoseGraphMST(nodes, edges);
     }
 
-    double PoseGraphMST::calculateWeight(const PoseGraphEdgeData& e){
+    double PoseGraphMST::calculateWeight(const PoseGraphEdgeData& e)
+    {
         PoseGraphImpl::Edge edge = edgeDataToEdgeImpl(e);
-        // Extract pose difference (rotation + translation)
+
+        // Translation vector t (x, y, z)
         cv::Vec3d t = edge.pose.t;
-        cv::Matx33d R = edge.pose.q.toRotMat3x3();
 
-        // Compute angle from rotation matrix
-        cv::Scalar s = cv::trace(R);
-        double trace = s[0];
-        double angle = std::acos(std::clamp((trace - 1.0) / 2.0, -1.0, 1.0));
-        if (std::isnan(angle)) 
-            angle = 0.0; 
+        // Calculate Euclidean norm of translation vector
+        double weight = cv::norm(t); // same as sqrt(t[0]^2 + t[1]^2 + t[2]^2)
 
-        // Weighted translational and rotational norm
-        double transNorm = cv::norm(t);
-        double poseNorm = transNorm + angle;
-
-        // Use information matrix magnitude as confidence
-        cv::Matx66f info = edge.sqrtInfo * edge.sqrtInfo.t();
-        double infoNorm = cv::norm(info);
-
-        // Final weight (inverse of confidence)
-        double weight = poseNorm / (infoNorm + 1e-6); // avoid division by 0
         return weight;
     }
 
@@ -1189,7 +1176,6 @@ PoseGraphMST::PoseGraphMST(cv::Ptr<PoseGraphImpl> pg):
         {
             PoseGraphImpl::Edge ed = edgeDataToEdgeImpl(edge);
             adj[ed.sourceNodeId].emplace_back(ed.targetNodeId, ed.pose);
-            // Also add reverse edge with inverse pose
             adj[ed.targetNodeId].emplace_back(ed.sourceNodeId, ed.pose.inverse());
         }
 

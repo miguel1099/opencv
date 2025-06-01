@@ -183,8 +183,7 @@ TEST(PoseGraphMST, BuildAndApplyMST)
     EXPECT_EQ(mst.getNumEdges(), pg->getNumEdges());
 
     size_t expectedEdges = pg->getNumNodes() - 1;
-    EXPECT_GE(mst.getEdgeList().size(), expectedEdges - 1); // allow 1 missing if graph not fully connected
-    EXPECT_LE(mst.getEdgeList().size(), expectedEdges);
+    EXPECT_EQ(mst.getEdgeList().size(), expectedEdges);
 
     mst.applyMST();
 
@@ -201,7 +200,7 @@ TEST(PoseGraphMST, BuildAndApplyMST)
             }
         }
     }
-
+    
     // Add the "--test_debug" to arguments to see resulting pose graph nodes positions
     if (cvtest::debugLevel > 0)
     {
