@@ -8,7 +8,7 @@ namespace
 {
         struct DSU {
         std::vector<size_t> parent, rank;
-        DSU(sizet n) : parent(n), rank(n, 0) {
+        DSU(size_t n) : parent(n), rank(n, 0) {
             for (size_t i = 0; i < n; ++i)
                 parent[i] = i;
         }
@@ -74,7 +74,7 @@ std::vector<MSTEdge> buildMSTKruskal(const std::vector<size_t>& nodes,
 
 std::vector<MSTEdge> buildMSTPrim(const std::vector<size_t>& nodes,
                                   const std::vector<MSTEdge>& edges,
-                                  size_t root = 0)
+                                  size_t root)
 {
     std::vector<MSTEdge> mst;
     if (nodes.empty() || edges.empty()) return mst;
