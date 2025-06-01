@@ -5,6 +5,7 @@
 #include "../precomp.hpp"
 #include "sparse_block_matrix.hpp"
 #include "opencv2/3d/detail/optimizer.hpp"
+#include "opencv2/3d/detail/mst.hpp"
 
 namespace cv
 {
@@ -360,6 +361,10 @@ public:
     std::vector<Edge> edges;
 
     Ptr<PoseGraphLevMarq> lm;
+
+private:
+    double calculateWeight(const PoseGraphImpl::Edge& e) const;
+    void applyMST(const std::vector<Edge>& mstEdges, const PoseGraphImpl::Node& rootNode);
 };
 
 
@@ -1063,10 +1068,10 @@ PoseGraphMST::PoseGraphMST(cv::Ptr<PoseGraphImpl> pg):
 // NOT NEEDED IN NEW IMPL ** END **
 
     // Updated weight calculation function using Mahalanobis distance like optimizer
-    static double calculateWeight(const Edge& e) const
+    double calculateWeight(const PoseGraphImpl::Edge& e) const
     {
         cv::Vec3d t = e.pose.t;
-        cv::Matx33d R = edge.pose.q.toRotMat3x3(cv::QUAT_ASSUME_UNIT);
+        cv::Matx33d R = e.pose.q.toRotMat3x3(cv::QUAT_ASSUME_UNIT);
 
         cv::Vec3d r;
         cv::Rodrigues(R, r); // get rotation vector from rotation matrix
@@ -1080,8 +1085,13 @@ PoseGraphMST::PoseGraphMST(cv::Ptr<PoseGraphImpl> pg):
         rterr[4] = r[1];
         rterr[5] = r[2];
 
+        // Convert Matx66f to Matx66d
+        cv::Matx66d sqrtInfoD;
+        for (int i = 0; i < 6; ++i)
+            for (int j = 0; j < 6; ++j)
+                sqrtInfoD(i, j) = static_cast<double>(e.sqrtInfo(i, j));
         // Reconstruct full information matrix
-        cv::Matx66f info = edge.sqrtInfo * edge.sqrtInfo.t();
+        cv::Matx66d info = sqrtInfoD * sqrtInfoD.t();
 
         // Calculate Mahalanobis distance: rterr^T * info * rterr
         cv::Matx<double, 1, 6> rterrT(rterr.val);
@@ -1104,12 +1114,12 @@ PoseGraphMST::PoseGraphMST(cv::Ptr<PoseGraphImpl> pg):
 
         size_t rootId = 0;
         PoseGraphImpl::Node rootNode = nodes.begin()->second;
-        for (const auto& [id, node] : nodeIds)
+        for (const auto& n: nodes)
         {
-            if (isNodeFixed(id))
+            if (isNodeFixed(n.second.id))
             {
-                rootNode = node;
-                rootId = nodeId;
+                rootNode = n.second;
+                rootId = n.second.id;
                 break;
             }
         }
@@ -1201,13 +1211,28 @@ PoseGraphMST::PoseGraphMST(cv::Ptr<PoseGraphImpl> pg):
     } */
     // USE ABOVE INSTEAD ** END **
 
-    // Update applyMST function
-    // Propagate MST using BFS
-    static void std::unordered_map<size_t, PoseGraphImpl::Pose3d> propagatePosesFromRoot(
-        const std::unordered_map<size_t, std::vector<std::pair<size_t, PoseGraphImpl::Pose3d>>>& adj,
-        const PoseGraphImpl::Node& rootNode
-    )
+    // Updated applyMST function
+    void applyMST(const std::vector<MSTEdge>& mstEdges, PoseGraphImpl::Node& rootNode)
     {
+        // Build adjacency list from edges {sourceId: { {targetId, relativePose}, ... }, ... }
+        std::unordered_map<size_t, std::vector<std::pair<size_t, PoseGraphImpl::Pose3d>>> adj;
+        for (const auto& e: mstEdges)
+        {
+            auto edgeMatches = [](size_t sourceId, size_t targetId, const Edge& edge)
+            {
+                return (edge.sourceNodeId == sourceId && edge.targetNodeId == targetId) ||
+                       (edge.sourceNodeId == targetId && edge.targetNodeId == sourceId);
+            };
+            auto it = std::find_if(edges.begin(), edges.end(),
+                [&](const Edge& edge) { return edgeMatches(e.sourceNodeId, e.targetNodeId, edge); });
+            if (it != edges.end())
+            {
+                adj[it->sourceNodeId].emplace_back(it->targetNodeId, it->pose);
+                adj[it->targetNodeId].emplace_back(it->sourceNodeId, it->pose.inverse());
+            }
+        }
+
+        // walk down MSt with BFS
         std::unordered_map<size_t, PoseGraphImpl::Pose3d> newPoses;
         std::stack<size_t> toVisit;
         std::unordered_set<size_t> visited;
@@ -1236,37 +1261,12 @@ PoseGraphMST::PoseGraphMST(cv::Ptr<PoseGraphImpl> pg):
             }
         }
 
-        return newPoses;
-    }
-
-    static void applyMST(const std::vector<MSTEdge>& mst, PoseGraphImpl::Node& rootNode)
-    {
-        // Build adjacency list from edges {sourceId: { {targetId, relativePose}, ... }, ... }
-        std::unordered_map<size_t, std::vector<std::pair<size_t, PoseGraphImpl::Pose3d>>> adj;
-        for (const auto& e: mst)
-        {
-            auto edgeMatches = [](size_t sourceId, size_t targetId, const Edge& edge)
-            {
-                return (edge.sourceNodeId == sourceId && edge.targetNodeId == targetId) ||
-                       (edge.sourceNodeId == targetId && edge.targetNodeId == sourceId);
-            };
-            auto it = std::find_if(edges.begin(), edges.end(),
-                [&](const Edge& edge) { return edgeMatches(e.sourceNodeId, e.targetNodeId, edge); });
-            if (it != edges.end())
-            {
-                adj[it->sourceNodeId].emplace_back(it->targetNodeId, it->pose);
-                adj[it->targetNodeId].emplace_back(it->sourceNodeId, it->pose.inverse());
-            }
-        }
-        
-        // walk down MSt & update poses
-        auto globalPoses = propagatePosesFromRoot(adj, rootNode);
-        for (const auto& [nodeId, pose] : globalPoses)
+        // update poses with newPoses
+        for (const auto& [nodeId, pose] : newPoses)
         {
             if (!nodes.at(nodeId).isFixed)
                 nodes.at(nodeId).setPose(pose.getAffine());
         }
-
     }
 
     // NOT NEEDED ** BEGIN **
