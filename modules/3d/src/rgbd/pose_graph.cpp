@@ -511,7 +511,7 @@ double PoseGraphImpl::calculateWeight(const PoseGraphImpl::Edge& e) const
     return weight;
 }
 
-void applyMST(const std::vector<cv::detail::MSTEdge> &resultingEdges, const PoseGraphImpl::Node &rootNode)
+void PoseGraphImpl::applyMST(const std::vector<cv::detail::MSTEdge> &resultingEdges, const PoseGraphImpl::Node &rootNode)
 {
     // Build adjacency list from edges {sourceId: { {targetId, relativePose}, ... }, ... }
     std::unordered_map<size_t, std::vector<std::pair<size_t, PoseGraphImpl::Pose3d>>> adj;
