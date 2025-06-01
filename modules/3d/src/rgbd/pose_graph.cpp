@@ -857,7 +857,7 @@ public:
 
     
     
-
+// NOT NEEDED IN NEW IMPL ** BEGIN **
     virtual const Mat_<double> getDiag() CV_OVERRIDE
     {
         return jtj.diagonal();
@@ -1060,7 +1060,9 @@ PoseGraphMST::PoseGraphMST(cv::Ptr<PoseGraphImpl> pg):
         }
         return cv::detail::PoseGraphMST(nodes, edges);
     }
+// NOT NEEDED IN NEW IMPL ** END **
 
+    // Update weight calculation function
     double PoseGraphMST::calculateWeight(const PoseGraphEdgeData& e){
         PoseGraphImpl::Edge edge = edgeDataToEdgeImpl(e);
         // Extract pose difference (rotation + translation)
@@ -1087,6 +1089,34 @@ PoseGraphMST::PoseGraphMST(cv::Ptr<PoseGraphImpl> pg):
         return weight;
     }
 
+
+    void initializePosesWithMST() CV_OVERRIDE
+    {
+        std::vector<size_t> nodeIds = getNodesIds();
+
+        std::vector<MSTEdge> MSTedges;
+        for (const auto& e: edges)
+        {
+            double weight = calculateWeight(e); // Update weight calculation function
+            MSTedges.push_back({e.sourceNodeId, e.targetNodeId, weight});
+        }
+
+        size_t rootId = 0;
+        for (const auto& id : nodeIds)
+        {
+            if (isNodeFixed(id))
+            {
+                rootId = nodeId;
+                break;
+            }
+        }
+
+        std::vector<MSTEdge> mst = buildMSTPrim(nodeIds, MSTedges, rootId);
+
+        applyMST(mst); // Update applyMST function
+    }
+
+    // USE ABOVE INSTEAD ** BEGIN **
     void PoseGraphMST::buildMST()
     {
         size_t nNodes = pgraph->getNumNodes();
@@ -1166,7 +1196,9 @@ PoseGraphMST::PoseGraphMST(cv::Ptr<PoseGraphImpl> pg):
             mst.insert(vertex);  
         }    
     }
+    // USE ABOVE INSTEAD ** END **
 
+    // Update applyMST function
     void PoseGraphMST::applyMST()
     {
         PoseGraphImpl::Node rootNode(0, Affine3d()); 
