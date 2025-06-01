@@ -5,7 +5,11 @@
 #ifndef OPENCV_3D_DETAIL_MST_HPP
 #define OPENCV_3D_DETAIL_MST_HPP
 
-#include ...
+#include <vector>
+#include <unordered_map>
+#include <algorithm>
+#include <limits>
+#include <queue>
 
 namespace cv
 {

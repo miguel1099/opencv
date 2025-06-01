@@ -139,8 +139,8 @@ public:
 };
 
 
-// BELOW HERE WOULDNT BE NEEDED
-struct PoseGraphImpl;
+// BELOW HERE WOULDNT BE NEEDED -> REFACTORING
+/* struct PoseGraphImpl;
 
 class CV_EXPORTS_W PoseGraphMST 
 {
@@ -194,7 +194,7 @@ private:
     size_t numEdges;
     size_t nVarNodes;
     
-};
+};*/
 
 }  // namespace detail
 }  // namespace cv

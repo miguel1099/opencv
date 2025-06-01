@@ -3,11 +3,6 @@
 // of this distribution and at http://opencv.org/license.html
 
 #include "opencv2/3d/detail/mst.hpp"
-#include <vector>
-#include <unordered_map>
-#include <algorithm>
-#include <limits>
-#include <queue>
 
 namespace
 {
