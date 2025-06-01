@@ -364,7 +364,7 @@ public:
 
 private:
     double calculateWeight(const PoseGraphImpl::Edge& e) const;
-    void applyMST(const std::vector<cv::detail::MSTEdge>& resultingEdges, const PoseGraphImpl::Node& rootNode)
+    void applyMST(const std::vector<cv::detail::MSTEdge>& resultingEdges, const PoseGraphImpl::Node& rootNode);
 };
 
 
@@ -511,19 +511,19 @@ double PoseGraphImpl::calculateWeight(const PoseGraphImpl::Edge& e) const
     return weight;
 }
 
-void PoseGraphImpl::applyMST(const std::vector<cv::detail::MSTEdge>& resultingEdges, const PoseGraphImpl::Node& rootNode)
+void applyMST(const std::vector<cv::detail::MSTEdge> &resultingEdges, const PoseGraphImpl::Node &rootNode)
 {
     // Build adjacency list from edges {sourceId: { {targetId, relativePose}, ... }, ... }
     std::unordered_map<size_t, std::vector<std::pair<size_t, PoseGraphImpl::Pose3d>>> adj;
     for (const auto& e: resultingEdges)
     {
-        auto edgeMatches = [](size_t sourceId, size_t targetId, const Edge& edge)
+        auto edgeMatches = [](size_t sourceId, size_t targetId, const PoseGraphImpl::Edge& edge)
         {
             return (edge.sourceNodeId == sourceId && edge.targetNodeId == targetId) ||
                     (edge.sourceNodeId == targetId && edge.targetNodeId == sourceId);
         };
         auto it = std::find_if(edges.begin(), edges.end(),
-            [&](const PoseGraphImpl::Edge& edge) { return edgeMatches(e.sourceNodeId, e.targetNodeId, edge); });
+            [&](const PoseGraphImpl::Edge& edge) { return edgeMatches(e.source, e.target, edge); });
         if (it != edges.end())
         {
             adj[it->sourceNodeId].emplace_back(it->targetNodeId, it->pose);
