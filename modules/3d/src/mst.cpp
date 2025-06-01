@@ -44,46 +44,37 @@ namespace cv
 {
 namespace detail
 {
-    std::vector<MSTEdge> buildMSTPrim(const std::vector<size_t> nodes,
-                                                 const std::vector<MSTEdge> edges,
-                                                 size_t root = 0
-                                                )
-    {
-    
-    }
-
-    std::vector<MSTEdge> buildMSTKruskal(const std::vector<size_t> nodes,
-                                                 const std::vector<MSTEdge> edges
-                                                )
-    {
-        std::vector<MSTEdge> mst;
-        if (nodes.empty() || edges.empty())
-            return mst;
-
-        std::unordered_map<size_t, size_t> nodeToIdx;
-        for (size_t i = 0; i < nodes.size(); ++i)
-            nodeToIdx[nodes[i]] = i;
-
-        std::vector<MSTEdge> sortedEdges = edges;
-        std::sort(sortedEdges.begin(), sortedEdges.end(), weightComparator);
-        DSU dsu(nodes.size());
-
-        for (auto &e : sortedEdges) {
-            size_t u = nodeToIdx[e.source], v = nodeToIdx[e.target];
-
-            if (dsu.find(u) != dsu.find(v)) {
-                mst.push_back(e);
-                dsu.unite(u, v);
-            }
-        }
-
+std::vector<MSTEdge> buildMSTKruskal(const std::vector<size_t>& nodes,
+                                                const std::vector<MSTEdge>& edges
+                                            )
+{
+    std::vector<MSTEdge> mst;
+    if (nodes.empty() || edges.empty())
         return mst;
+
+    std::unordered_map<size_t, size_t> nodeToIdx;
+    for (size_t i = 0; i < nodes.size(); ++i)
+        nodeToIdx[nodes[i]] = i;
+
+    std::vector<MSTEdge> sortedEdges = edges;
+    std::sort(sortedEdges.begin(), sortedEdges.end(), weightComparator);
+    DSU dsu(nodes.size());
+
+    for (auto &e : sortedEdges) {
+        size_t u = nodeToIdx[e.source], v = nodeToIdx[e.target];
+
+        if (dsu.find(u) != dsu.find(v)) {
+            mst.push_back(e);
+            dsu.unite(u, v);
+        }
     }
 
-// using min heap for optimization vs N^2
+    return mst;
+}
+
 std::vector<MSTEdge> buildMSTPrim(const std::vector<size_t>& nodes,
                                   const std::vector<MSTEdge>& edges,
-                                  size_t root)
+                                  size_t root = 0)
 {
     std::vector<MSTEdge> mst;
     if (nodes.empty() || edges.empty()) return mst;
@@ -128,6 +119,7 @@ std::vector<MSTEdge> buildMSTPrim(const std::vector<size_t>& nodes,
             }
         }
     }
+
     return mst;
 }
 

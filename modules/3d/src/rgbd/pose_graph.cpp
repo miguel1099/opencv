@@ -591,7 +591,7 @@ void PoseGraphImpl::initializePosesWithMST()
         }
     }
 
-    std::vector<MSTEdge> resultingEdges = buildMSTPrim(nodeIds, MSTedges, rootId);
+    std::vector<MSTEdge> resultingEdges = cv::detail::buildMSTPrim(nodeIds, MSTedges, rootId);
 
     applyMST(resultingEdges, rootNode); // Update applyMST function
 }

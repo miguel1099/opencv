@@ -23,17 +23,17 @@ struct MSTEdge
 };
 
 std::vector<MSTEdge> buildMSTPrim(
-    const std::vector<size_t> nodes, // Should be 0-based
-    const std::vector<MSTEdge> edges,
+    const std::vector<size_t>& nodes, // Should be 0-based
+    const std::vector<MSTEdge>& edges,
     size_t root = 0
 );
 
 std::vector<MSTEdge> buildMSTKruskal(
-    const std::vector<size_t> nodes,
-    const std::vector<MSTEdge> edges
+    const std::vector<size_t>& nodes,
+    const std::vector<MSTEdge>& edges
 );
 
-}
-}
+} // namespace detail
+} // namespace cv
 
 #endif // include guard
