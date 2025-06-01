@@ -16,19 +16,19 @@ namespace cv
 namespace detail
 {
 
-struct MSTEdge
+struct CV_EXPORTS MSTEdge
 {
     size_t source, target;
     double weight;
 };
 
-std::vector<MSTEdge> buildMSTPrim(
+CV_EXPORTS std::vector<MSTEdge> buildMSTPrim(
     const std::vector<size_t>& nodes, // Should be 0-based
     const std::vector<MSTEdge>& edges,
     size_t root = 0
 );
 
-std::vector<MSTEdge> buildMSTKruskal(
+CV_EXPORTS std::vector<MSTEdge> buildMSTKruskal(
     const std::vector<size_t>& nodes,
     const std::vector<MSTEdge>& edges
 );
