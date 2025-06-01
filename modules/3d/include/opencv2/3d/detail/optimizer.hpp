@@ -138,64 +138,6 @@ public:
     virtual double calcEnergy() const = 0;
 };
 
-
-// BELOW HERE WOULDNT BE NEEDED -> REFACTORING
-/* struct PoseGraphImpl;
-
-class CV_EXPORTS_W PoseGraphMST 
-{
-public:
-    virtual ~PoseGraphMST() = default;
-    explicit PoseGraphMST(cv::Ptr<PoseGraphImpl> pg);
-
-    
-    struct PoseGraphNodeData {
-        size_t id;
-        cv::Affine3d pose;
-        bool isFixed;
-    };
-
-    struct PoseGraphEdgeData {
-        size_t sourceNodeId;
-        size_t targetNodeId;
-        cv::Affine3f transformation;
-        cv::Matx66f information;
-    };
-
-    PoseGraphMST(const std::vector<PoseGraphNodeData>& nodes,
-                 const std::vector<PoseGraphEdgeData>& edges);
-
-    std::unique_ptr<detail::PoseGraph> createPoseGraphFromData(
-        const std::vector<PoseGraphNodeData>& nodes,
-        const std::vector<PoseGraphEdgeData>& edges);
-
-    void buildMST();
-    void applyMST();
-
-    virtual double calculateWeight(const PoseGraphEdgeData& edge);
-
-    static cv::detail::PoseGraphMST createPoseGraphMSTfromPoseGraph(const cv::Ptr<cv::detail::PoseGraph>& pg);
-
-    std::vector<PoseGraphEdgeData> getEdgeList();
-    size_t getNumNodes() const;
-    size_t getNumEdges() const;
-
-private:
-    void initializeFromPoseGraph(cv::Ptr<PoseGraphImpl> pg);
-
-    cv::Ptr<PoseGraphImpl> pgraph;
-    std::vector<PoseGraphEdgeData> edge_list;
-
-    std::vector<size_t> placesIds; 
-    std::unordered_map<size_t, size_t> idToPlace;
-
-    size_t nVars;
-    size_t numNodes;
-    size_t numEdges;
-    size_t nVarNodes;
-    
-};*/
-
 }  // namespace detail
 }  // namespace cv
 
