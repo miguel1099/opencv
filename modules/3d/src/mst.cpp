@@ -6,7 +6,7 @@
 
 namespace
 {
-        struct DSU {
+    struct DSU {
         std::vector<size_t> parent, rank;
         DSU(size_t n) : parent(n), rank(n, 0) {
             for (size_t i = 0; i < n; ++i)
@@ -19,7 +19,7 @@ namespace
             return parent[x];
         }
 
-        void unite(size_t x, size_y) {
+        void unite(size_t x, size_t y) {
             size_t rootX = find(x);
             size_t rootY = find(y);
             if (rootX != rootY) {
@@ -33,9 +33,9 @@ namespace
                 }
             }
         }
-    }
+    };
 
-    bool weightComparator(const MSTEdge& a, const MSTEdge& b) {
+    bool weightComparator(const cv::detail::MSTEdge& a, const cv::detail::MSTEdge& b) {
         return a.weight <= b.weight;
     }
 } // unamed namespace
@@ -44,11 +44,11 @@ namespace cv
 {
 namespace detail
 {
-std::vector<MSTEdge> buildMSTKruskal(const std::vector<size_t>& nodes,
-                                                const std::vector<MSTEdge>& edges
+std::vector<cv::detail::MSTEdge> buildMSTKruskal(const std::vector<size_t>& nodes,
+                                                const std::vector<cv::detail::MSTEdge>& edges
                                             )
 {
-    std::vector<MSTEdge> mst;
+    std::vector<cv::detail::MSTEdge> mst;
     if (nodes.empty() || edges.empty())
         return mst;
 
@@ -56,7 +56,7 @@ std::vector<MSTEdge> buildMSTKruskal(const std::vector<size_t>& nodes,
     for (size_t i = 0; i < nodes.size(); ++i)
         nodeToIdx[nodes[i]] = i;
 
-    std::vector<MSTEdge> sortedEdges = edges;
+    std::vector<cv::detail::MSTEdge> sortedEdges = edges;
     std::sort(sortedEdges.begin(), sortedEdges.end(), weightComparator);
     DSU dsu(nodes.size());
 
@@ -72,11 +72,11 @@ std::vector<MSTEdge> buildMSTKruskal(const std::vector<size_t>& nodes,
     return mst;
 }
 
-std::vector<MSTEdge> buildMSTPrim(const std::vector<size_t>& nodes,
-                                  const std::vector<MSTEdge>& edges,
+std::vector<cv::detail::MSTEdge> buildMSTPrim(const std::vector<size_t>& nodes,
+                                  const std::vector<cv::detail::MSTEdge>& edges,
                                   size_t root)
 {
-    std::vector<MSTEdge> mst;
+    std::vector<cv::detail::MSTEdge> mst;
     if (nodes.empty() || edges.empty()) return mst;
 
     std::unordered_map<size_t, size_t> nodeToIdx;
@@ -86,7 +86,7 @@ std::vector<MSTEdge> buildMSTPrim(const std::vector<size_t>& nodes,
     size_t n = nodes.size();
     std::vector<bool> inMST(n, false);
 
-    std::vector<std::vector<MSTEdge>> adj(n);
+    std::vector<std::vector<cv::detail::MSTEdge>> adj(n);
     for (const auto& e : edges) {
         size_t u = nodeToIdx[e.source], v = nodeToIdx[e.target];
         adj[u].push_back({e.source, e.target, e.weight});

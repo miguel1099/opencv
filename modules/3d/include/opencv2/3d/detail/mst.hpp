@@ -5,6 +5,7 @@
 #ifndef OPENCV_3D_DETAIL_MST_HPP
 #define OPENCV_3D_DETAIL_MST_HPP
 
+#include <opencv2/core.hpp>
 #include <vector>
 #include <unordered_map>
 #include <algorithm>
