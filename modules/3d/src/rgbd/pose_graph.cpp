@@ -483,18 +483,12 @@ double PoseGraphImpl::calculateWeight(const PoseGraphImpl::Edge& e) const
 {
     // Translation vector norm
     double translationNorm = cv::norm(e.pose.t);
+    double rotAngle = e.pose.q.getAngle(cv::QUAT_ASSUME_UNIT);
+    double rotAngleNorm = rotAngle / (2 * CV_PI);
 
-    // Rotation vector norm (angle)
-    cv::Matx33d R = e.pose.q.toRotMat3x3(cv::QUAT_ASSUME_UNIT);
-    cv::Vec3d rvec;
-    cv::Rodrigues(R, rvec);
-    double rotationAngle = cv::norm(rvec);
-
-    double lambda = 1.0;  // Balance between translation and rotation
-
-    double weight = translationNorm + lambda * rotationAngle;
-    return weight;
+    return translationNorm + rotAngleNorm;
 }
+
 void PoseGraphImpl::applyMST(const std::vector<cv::detail::MSTEdge>& resultingEdges, const PoseGraphImpl::Node& rootNode)
 {
     std::unordered_map<size_t, std::vector<std::pair<size_t, PoseGraphImpl::Pose3d>>> adj;
@@ -560,8 +554,8 @@ void PoseGraphImpl::initializePosesWithMST()
     for (const auto& e: edges)
     {
         double weight = calculateWeight(e);
-        if (weight < 100.0)
-            MSTedges.push_back({e.sourceNodeId, e.targetNodeId, weight});
+        //if (weight < 100.0)
+        MSTedges.push_back({e.sourceNodeId, e.targetNodeId, weight});
     }
 
     size_t rootId = 0;

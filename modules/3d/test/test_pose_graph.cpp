@@ -168,16 +168,20 @@ TEST(PoseGraphMST, optimization)
     std::string filename = cvtest::TS::ptr()->get_data_path() + "/cv/rgbd/sphere_bignoise_vertex3.g2o";
 
    
-    Ptr<detail::PoseGraph> pgWihMST = readG2OFile(filename);
+    Ptr<detail::PoseGraph> pgWithMST = readG2OFile(filename);
     Ptr<detail::PoseGraph> pgOptimizerOnly = readG2OFile(filename);
+    Ptr<detail::PoseGraph> pgWithMSTAndOptimizer = readG2OFile(filename);
     Ptr<detail::PoseGraph> init = readG2OFile(filename);
 
-    // You may change logging level to view detailed optimization report
-    // For example, set env. variable like this: OPENCV_LOG_LEVEL=INFO
+    pgWithMST->initializePosesWithMST();
+    pgWithMSTAndOptimizer->initializePosesWithMST();
 
-    // geoScale=1 is experimental, not guaranteed to work on other problems
-    // the rest are default params
-    pgWihMST->initializePosesWithMST();
+    auto initialEnergy = init->calcEnergy();
+    auto AfterMSTEnergy = pgWithMST->calcEnergy();
+    std::cout << "Initial energy: " << initialEnergy << std::endl;
+    std::cout << "After MST energy: " << AfterMSTEnergy << std::endl;
+    //EXPECT_LT(AfterMSTEnergy, initialEnergy);
+
     // std::string out_path = "/home/miguel/mst_edges_cpp.txt";
     // std::ofstream edgeFile(out_path);
     // if (!edgeFile.is_open())
@@ -205,20 +209,31 @@ TEST(PoseGraphMST, optimization)
     //                     .setRelEnergyDeltaTolerance(1e-6)
     //                     .setGeodesic(true));
 
+    // You may change logging level to view detailed optimization report
+    // For example, set env. variable like this: OPENCV_LOG_LEVEL=INFO
+
+    // geoScale=1 is experimental, not guaranteed to work on other problems
+    // the rest are default params
     pgOptimizerOnly->createOptimizer(LevMarq::Settings().setGeoScale(1.0)
                         .setMaxIterations(100)
                         .setCheckRelEnergyChange(true)
                         .setRelEnergyDeltaTolerance(1e-6)
                         .setGeodesic(true));                    
-    
-    auto r1 = pgWihMST->optimize();
+    pgWithMSTAndOptimizer->createOptimizer(LevMarq::Settings().setGeoScale(1.0)
+                        .setMaxIterations(100)
+                        .setCheckRelEnergyChange(true)
+                        .setRelEnergyDeltaTolerance(1e-6)
+                        .setGeodesic(true));
+
+    auto r1 = pgWithMSTAndOptimizer->optimize();
+    std::cout << "MST+Optimizer energy: " << r1.energy << std::endl;
     auto r2 = pgOptimizerOnly->optimize();
+    std::cout << "Optimizer-only energy: " << r2.energy << std::endl;
 
-    // EXPECT_TRUE(r1.found);
-    // EXPECT_TRUE(r2.found);
-    //std::cout << "r1: " << r1.iters << " r2:" << r2.iters << std::endl;
-   // EXPECT_LE(r1.iters, r2.iters); // should converge in less iterations with MST
-
+    EXPECT_TRUE(r1.found);
+    EXPECT_TRUE(r2.found);
+    std::cout << "r1: " << r1.iters << " r2:" << r2.iters << std::endl;
+    // EXPECT_LE(r1.iters, r2.iters); // should converge in less iterations with MST
 
     // Add the "--test_debug" to arguments to see resulting pose graph nodes positions
     if (cvtest::debugLevel > 0)
@@ -227,16 +242,34 @@ TEST(PoseGraphMST, optimization)
         {
             std::string fname = "pg_with_mst.obj";
             std::fstream of(fname, std::fstream::out);
-            std::vector<size_t> ids = pgWihMST->getNodesIds();
+            std::vector<size_t> ids = pgWithMST->getNodesIds();
             for (const size_t& id : ids)
             {
-                Point3d d = pgWihMST->getNodePose(id).translation();
+                Point3d d = pgWithMST->getNodePose(id).translation();
                 of << "v " << d.x << " " << d.y << " " << d.z << std::endl;
             }
-            size_t esz = pgWihMST->getNumEdges();
+            size_t esz = pgWithMST->getNumEdges();
             for (size_t i = 0; i < esz; i++)
             {
-                size_t sid = pgWihMST->getEdgeStart(i), tid = pgWihMST->getEdgeEnd(i);
+                size_t sid = pgWithMST->getEdgeStart(i), tid = pgWithMST->getEdgeEnd(i);
+                of << "l " << sid + 1 << " " << tid + 1 << std::endl;
+            }
+            of.close();
+        }
+        // Write OBJ for MST-initialized pose graph with optimizer
+        {
+            std::string fname = "pg_with_mst_and_optimizer.obj";
+            std::fstream of(fname, std::fstream::out);
+            std::vector<size_t> ids = pgWithMSTAndOptimizer->getNodesIds();
+            for (const size_t& id : ids)
+            {
+                Point3d d = pgWithMSTAndOptimizer->getNodePose(id).translation();
+                of << "v " << d.x << " " << d.y << " " << d.z << std::endl;
+            }
+            size_t esz = pgWithMSTAndOptimizer->getNumEdges();
+            for (size_t i = 0; i < esz; i++)
+            {
+                size_t sid = pgWithMSTAndOptimizer->getEdgeStart(i), tid = pgWithMSTAndOptimizer->getEdgeEnd(i);
                 of << "l " << sid + 1 << " " << tid + 1 << std::endl;
             }
             of.close();
