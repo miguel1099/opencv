@@ -155,10 +155,7 @@ TEST(PoseGraph, sphereG2O)
     }
 }
 
-using cv::detail::PoseGraphImpl;
-using cv::detail::PoseGraphMST;
-
-TEST(PoseGraphMST, BuildAndApplyMST)
+TEST(PoseGraphMST, optimization)
 {
     applyTestTag(CV_TEST_TAG_LONG, CV_TEST_TAG_DEBUG_VERYLONG);
 
@@ -169,53 +166,73 @@ TEST(PoseGraphMST, BuildAndApplyMST)
     // In IEEE Intl.Conf.on Robotics and Automation(ICRA), pages 4597 - 4604, 2015.
 
     std::string filename = cvtest::TS::ptr()->get_data_path() + "/cv/rgbd/sphere_bignoise_vertex3.g2o";
-    Ptr<detail::PoseGraph> pg = readG2OFile(filename);
 
-    ASSERT_TRUE(pg != nullptr);
-    ASSERT_TRUE(pg->isValid());
+    Ptr<detail::PoseGraph> pgWihMST = readG2OFile(filename);
+    Ptr<detail::PoseGraph> pgOptimizerOnly = readG2OFile(filename);
 
-    PoseGraphMST mst = PoseGraphMST::createPoseGraphMSTfromPoseGraph(pg);
+    // You may change logging level to view detailed optimization report
+    // For example, set env. variable like this: OPENCV_LOG_LEVEL=INFO
 
-    mst.buildMST();
+    // geoScale=1 is experimental, not guaranteed to work on other problems
+    // the rest are default params
+    pgWihMST->initializePosesWithMST();
+    pgWihMST->createOptimizer(LevMarq::Settings().setGeoScale(1.0)
+                        .setMaxIterations(100)
+                        .setCheckRelEnergyChange(true)
+                        .setRelEnergyDeltaTolerance(1e-6)
+                        .setGeodesic(true));
 
-    // Check that number of MST edges is valid (should be numNodes - 1 for a connected tree)
-    EXPECT_EQ(mst.getNumNodes(), pg->getNumNodes());
-    EXPECT_EQ(mst.getNumEdges(), pg->getNumEdges());
+    pgOptimizerOnly->createOptimizer(LevMarq::Settings().setGeoScale(1.0)
+                        .setMaxIterations(100)
+                        .setCheckRelEnergyChange(true)
+                        .setRelEnergyDeltaTolerance(1e-6)
+                        .setGeodesic(true));                    
+    
+    auto r1 = pgWihMST->optimize();
+    auto r2 = pgOptimizerOnly->optimize();
 
-    size_t expectedEdges = pg->getNumNodes() - 1;
-    EXPECT_GE(mst.getEdgeList().size(), expectedEdges - 1); // allow 1 missing if graph not fully connected
-    EXPECT_LE(mst.getEdgeList().size(), expectedEdges);
-
-    mst.applyMST();
-
-    std::vector<size_t> nodeIds = pg->getNodesIds();
-    for (size_t nodeId : nodeIds)
-    {
-        if (!pg->isNodeFixed(nodeId))
-        {
-            cv::Vec3d t = pg->getNodePose(nodeId).translation();
-            for (int i = 0; i < 3; ++i)
-            {
-                EXPECT_TRUE(std::isfinite(t[i])) << "Non-finite pose for node " << nodeId;
-                EXPECT_LT(std::abs(t[i]), 1e5) << "Translation too large for node " << nodeId;
-            }
-        }
-    }
+    EXPECT_TRUE(r1.found);
+    EXPECT_TRUE(r2.found);
+    EXPECT_LE(r1.iters, r2.iters); // should converge in less iterations with MST
 
     // Add the "--test_debug" to arguments to see resulting pose graph nodes positions
     if (cvtest::debugLevel > 0)
     {
-        std::ofstream of("pg_mst_output.obj");
-        for (const auto& nodeId : nodeIds)
+        // Write OBJ for MST-initialized pose graph
         {
-            auto pose = pg->getNodePose(nodeId);
-            auto t = pose.translation();
-            of << "v " << t[0] << " " << t[1] << " " << t[2] << std::endl;
+            std::string fname = "pg_with_mst.obj";
+            std::fstream of(fname, std::fstream::out);
+            std::vector<size_t> ids = pgWihMST->getNodesIds();
+            for (const size_t& id : ids)
+            {
+                Point3d d = pgWihMST->getNodePose(id).translation();
+                of << "v " << d.x << " " << d.y << " " << d.z << std::endl;
+            }
+            size_t esz = pgWihMST->getNumEdges();
+            for (size_t i = 0; i < esz; i++)
+            {
+                size_t sid = pgWihMST->getEdgeStart(i), tid = pgWihMST->getEdgeEnd(i);
+                of << "l " << sid + 1 << " " << tid + 1 << std::endl;
+            }
+            of.close();
         }
-        
-        for (const auto& edge : mst.getEdgeList())
+        // Write OBJ for optimizer-only pose graph
         {
-            of << "l " << (edge.sourceNodeId + 1) << " " << (edge.targetNodeId + 1) << std::endl;
+            std::string fname = "pg_optimizer_only.obj";
+            std::fstream of(fname, std::fstream::out);
+            std::vector<size_t> ids = pgOptimizerOnly->getNodesIds();
+            for (const size_t& id : ids)
+            {
+                Point3d d = pgOptimizerOnly->getNodePose(id).translation();
+                of << "v " << d.x << " " << d.y << " " << d.z << std::endl;
+            }
+            size_t esz = pgOptimizerOnly->getNumEdges();
+            for (size_t i = 0; i < esz; i++)
+            {
+                size_t sid = pgOptimizerOnly->getEdgeStart(i), tid = pgOptimizerOnly->getEdgeEnd(i);
+                of << "l " << sid + 1 << " " << tid + 1 << std::endl;
+            }
+            of.close();
         }
     }
 }
@@ -457,6 +474,11 @@ TEST(PoseGraph, simple)
 #else
 
 TEST(PoseGraph, sphereG2O)
+{
+    throw SkipTestException("Build with Eigen required for pose graph optimization");
+}
+
+TEST(PoseGraphMST, optimization)
 {
     throw SkipTestException("Build with Eigen required for pose graph optimization");
 }
