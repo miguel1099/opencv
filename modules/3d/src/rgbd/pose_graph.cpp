@@ -481,57 +481,41 @@ bool PoseGraphImpl::isValid() const
 
 double PoseGraphImpl::calculateWeight(const PoseGraphImpl::Edge& e) const
 {
-    cv::Vec3d t = e.pose.t;
+    // Translation vector norm
+    double translationNorm = cv::norm(e.pose.t);
+
+    // Rotation vector norm (angle)
     cv::Matx33d R = e.pose.q.toRotMat3x3(cv::QUAT_ASSUME_UNIT);
-    cv::Vec3d r;
-    cv::Rodrigues(R, r); // get rotation vector from rotation matrix
+    cv::Vec3d rvec;
+    cv::Rodrigues(R, rvec);
+    double rotationAngle = cv::norm(rvec);
 
-    // 6D error vector (translation, rotation)
-    cv::Vec6d rterr;
-    rterr[0] = t[0];
-    rterr[1] = t[1];
-    rterr[2] = t[2];
-    rterr[3] = r[0];
-    rterr[4] = r[1];
-    rterr[5] = r[2];
+    double lambda = 1.0;  // Balance between translation and rotation
 
-    // Convert Matx66f to Matx66d
-    cv::Matx66d sqrtInfoD;
-    for (int i = 0; i < 6; ++i)
-        for (int j = 0; j < 6; ++j)
-            sqrtInfoD(i, j) = static_cast<double>(e.sqrtInfo(i, j));
-    // Reconstruct full information matrix
-    cv::Matx66d info = sqrtInfoD * sqrtInfoD.t();
-
-    // Calculate Mahalanobis distance: rterr^T * info * rterr
-    cv::Matx<double, 1, 6> rterrT(rterr.val);
-    cv::Matx<double, 6, 1> rterrM(rterr.val);
-    double weight = (rterrT * info * rterrM)(0, 0);
-
+    double weight = translationNorm + lambda * rotationAngle;
     return weight;
 }
-
-void PoseGraphImpl::applyMST(const std::vector<cv::detail::MSTEdge> &resultingEdges, const PoseGraphImpl::Node &rootNode)
+void PoseGraphImpl::applyMST(const std::vector<cv::detail::MSTEdge>& resultingEdges, const PoseGraphImpl::Node& rootNode)
 {
-    // Build adjacency list from edges {sourceId: { {targetId, relativePose}, ... }, ... }
     std::unordered_map<size_t, std::vector<std::pair<size_t, PoseGraphImpl::Pose3d>>> adj;
     for (const auto& e: resultingEdges)
     {
-        auto edgeMatches = [](size_t sourceId, size_t targetId, const PoseGraphImpl::Edge& edge)
+        auto it = std::find_if(edges.begin(), edges.end(), [&](const PoseGraphImpl::Edge& edge)
         {
-            return (edge.sourceNodeId == sourceId && edge.targetNodeId == targetId) ||
-                    (edge.sourceNodeId == targetId && edge.targetNodeId == sourceId);
-        };
-        auto it = std::find_if(edges.begin(), edges.end(),
-            [&](const PoseGraphImpl::Edge& edge) { return edgeMatches(e.source, e.target, edge); });
+            return (edge.sourceNodeId == e.source && edge.targetNodeId == e.target) ||
+                   (edge.sourceNodeId == e.target && edge.targetNodeId == e.source);
+        });
         if (it != edges.end())
         {
-            adj[it->sourceNodeId].emplace_back(it->targetNodeId, it->pose);
-            adj[it->targetNodeId].emplace_back(it->sourceNodeId, it->pose.inverse());
+            size_t src = it->sourceNodeId;
+            size_t tgt = it->targetNodeId;
+            const PoseGraphImpl::Pose3d& relPose = it->pose;
+
+            adj[src].emplace_back(tgt, relPose);
+            adj[tgt].emplace_back(src, relPose.inverse());
         }
     }
 
-    // walk down MSt with BFS
     std::unordered_map<size_t, PoseGraphImpl::Pose3d> newPoses;
     std::stack<size_t> toVisit;
     std::unordered_set<size_t> visited;
@@ -560,7 +544,7 @@ void PoseGraphImpl::applyMST(const std::vector<cv::detail::MSTEdge> &resultingEd
         }
     }
 
-    // update poses with newPoses
+    // Apply the new poses
     for (const auto& [nodeId, pose] : newPoses)
     {
         if (!nodes.at(nodeId).isFixed)
@@ -575,8 +559,9 @@ void PoseGraphImpl::initializePosesWithMST()
     std::vector<MSTEdge> MSTedges;
     for (const auto& e: edges)
     {
-        double weight = calculateWeight(e); // Update weight calculation function
-        MSTedges.push_back({e.sourceNodeId, e.targetNodeId, weight});
+        double weight = calculateWeight(e);
+        if (weight < 100.0)
+            MSTedges.push_back({e.sourceNodeId, e.targetNodeId, weight});
     }
 
     size_t rootId = 0;
@@ -593,7 +578,7 @@ void PoseGraphImpl::initializePosesWithMST()
 
     std::vector<MSTEdge> resultingEdges = cv::detail::buildMSTPrim(nodeIds, MSTedges, rootId);
 
-    applyMST(resultingEdges, rootNode); // Update applyMST function
+    applyMST(resultingEdges, rootNode);
 }
 
 //////////////////////////
