@@ -53,7 +53,6 @@ const MSTParamType mst_params[] =
 {
     // Prim
 
-
     // Small Graph
     MSTParamType(true, {0, 1, 2, 3},
         {
@@ -209,13 +208,17 @@ inline static std::string MST_name_printer(const testing::TestParamInfo<MST::Par
 { // TODO: better naming!!!
     std::ostringstream os;
     const bool isPrim = get<0>(info.param);
-    os << "MST_" << (isPrim ? "Prim" : "Kruskal") << "_";
     const auto& nodes = get<1>(info.param);
-    os << "Nodes_" << nodes.size() << "_";
     const auto& edges = get<2>(info.param);
-    os << "Edges_" << edges.size() << "_";
     const auto& expectedEdges = get<3>(info.param);
+    const auto& isConnected = get<4>(info.param);
+
+    os << "MST_" << (isPrim ? "Prim" : "Kruskal") << "_";
+    os << "Nodes_" << nodes.size() << "_";
+    os << "Edges_" << edges.size() << "_";
     os << "ExpectedEdges_" << expectedEdges.size();
+    os << "isConnected_" << isConnected;
+
     return os.str();
 }
 
