@@ -488,8 +488,9 @@ double PoseGraphImpl::calculateWeight(const PoseGraphImpl::Edge& e) const
     cv::Rodrigues(R, rvec);
     double rotationAngle = cv::norm(rvec); // angle in radians
 
-    double lambda = 0.5;
+    double lambda = 0.485;
     double weight = translationNorm + lambda * rotationAngle;
+
     return weight;
 }
 

@@ -167,7 +167,6 @@ TEST(PoseGraphMST, optimization)
 
     std::string filename = cvtest::TS::ptr()->get_data_path() + "/cv/rgbd/sphere_bignoise_vertex3.g2o";
 
-   
     Ptr<detail::PoseGraph> pgWithMST = readG2OFile(filename);
     Ptr<detail::PoseGraph> pgOptimizerOnly = readG2OFile(filename);
     Ptr<detail::PoseGraph> pgWithMSTAndOptimizer = readG2OFile(filename);
@@ -179,12 +178,13 @@ TEST(PoseGraphMST, optimization)
     auto initialEnergy = init->calcEnergy();
     auto AfterMSTEnergy = pgWithMST->calcEnergy();
     std::cout << "Initial energy: " << initialEnergy << std::endl;
-    std::cout << "After MST energy: " << AfterMSTEnergy << std::endl;
+    std::cout << "Energy after MST Initialization: " << AfterMSTEnergy << std::endl;
 
-    pgWithMST->optimize();
-    //EXPECT_LT(AfterMSTEnergy, initialEnergy);
+    // You may change logging level to view detailed optimization report
+    // For example, set env. variable like this: OPENCV_LOG_LEVEL=INFO
 
-   
+    // geoScale=1 is experimental, not guaranteed to work on other problems
+    // the rest are default params
     pgOptimizerOnly->createOptimizer(LevMarq::Settings().setGeoScale(1.0)
                         .setMaxIterations(100)
                         .setCheckRelEnergyChange(true)
@@ -203,8 +203,8 @@ TEST(PoseGraphMST, optimization)
 
     EXPECT_TRUE(r1.found);
     EXPECT_TRUE(r2.found);
-    std::cout << "r1: " << r1.iters << " r2:" << r2.iters << std::endl;
-    // EXPECT_LE(r1.iters, r2.iters); // should converge in less iterations with MST
+    std::cout << "MST+Optimizer Iterations: " << r1.iters << std::endl;
+    std::cout << "Optimizer Iterations:" << r2.iters << std::endl;
 
     // Add the "--test_debug" to arguments to see resulting pose graph nodes positions
     if (cvtest::debugLevel > 0)
