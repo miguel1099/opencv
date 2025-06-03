@@ -180,40 +180,11 @@ TEST(PoseGraphMST, optimization)
     auto AfterMSTEnergy = pgWithMST->calcEnergy();
     std::cout << "Initial energy: " << initialEnergy << std::endl;
     std::cout << "After MST energy: " << AfterMSTEnergy << std::endl;
+
+    pgWithMST->optimize();
     //EXPECT_LT(AfterMSTEnergy, initialEnergy);
 
-    // std::string out_path = "/home/miguel/mst_edges_cpp.txt";
-    // std::ofstream edgeFile(out_path);
-    // if (!edgeFile.is_open())
-    // {
-    //     std::cerr << "Failed to open file: " << out_path << std::endl;
-    // }
-    // else
-    // {
-    //     size_t esz = pgWihMST->getNumEdges();
-
-    //     for (size_t i = 0; i < esz; i++)
-    //     {
-    //         int a = static_cast<int>(pgWihMST->getEdgeStart(i));
-    //         int b = static_cast<int>( pgWihMST->getEdgeEnd(i));
-    //         if (a > b) std::swap(a, b);
-    //         edgeFile << a << " " << b << "\n";
-    //     }
-    //     edgeFile.flush();
-    //     edgeFile.close();
-    //     std::cout << "Written MST edges:"<< esz << " edges to: " << out_path << std::endl;
-    // }
-    // pgWihMST->createOptimizer(LevMarq::Settings().setGeoScale(1.0)
-    //                     .setMaxIterations(100)
-    //                     .setCheckRelEnergyChange(true)
-    //                     .setRelEnergyDeltaTolerance(1e-6)
-    //                     .setGeodesic(true));
-
-    // You may change logging level to view detailed optimization report
-    // For example, set env. variable like this: OPENCV_LOG_LEVEL=INFO
-
-    // geoScale=1 is experimental, not guaranteed to work on other problems
-    // the rest are default params
+   
     pgOptimizerOnly->createOptimizer(LevMarq::Settings().setGeoScale(1.0)
                         .setMaxIterations(100)
                         .setCheckRelEnergyChange(true)
