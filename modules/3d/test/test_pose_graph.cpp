@@ -177,8 +177,6 @@ TEST(PoseGraphMST, optimization)
 
     auto initialEnergy = init->calcEnergy();
     auto AfterMSTEnergy = pgWithMST->calcEnergy();
-    std::cout << "Initial energy: " << initialEnergy << std::endl;
-    std::cout << "Energy after MST Initialization: " << AfterMSTEnergy << std::endl;
 
     // You may change logging level to view detailed optimization report
     // For example, set env. variable like this: OPENCV_LOG_LEVEL=INFO
@@ -197,14 +195,10 @@ TEST(PoseGraphMST, optimization)
                         .setGeodesic(true));
 
     auto r1 = pgWithMSTAndOptimizer->optimize();
-    std::cout << "MST+Optimizer energy: " << r1.energy << std::endl;
     auto r2 = pgOptimizerOnly->optimize();
-    std::cout << "Optimizer-only energy: " << r2.energy << std::endl;
 
     EXPECT_TRUE(r1.found);
     EXPECT_TRUE(r2.found);
-    std::cout << "MST+Optimizer Iterations: " << r1.iters << std::endl;
-    std::cout << "Optimizer Iterations:" << r2.iters << std::endl;
 
     // Add the "--test_debug" to arguments to see resulting pose graph nodes positions
     if (cvtest::debugLevel > 0)
