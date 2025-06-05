@@ -167,16 +167,11 @@ TEST(PoseGraphMST, optimization)
 
     std::string filename = cvtest::TS::ptr()->get_data_path() + "/cv/rgbd/sphere_bignoise_vertex3.g2o";
 
-    Ptr<detail::PoseGraph> pgWithMST = readG2OFile(filename);
     Ptr<detail::PoseGraph> pgOptimizerOnly = readG2OFile(filename);
     Ptr<detail::PoseGraph> pgWithMSTAndOptimizer = readG2OFile(filename);
     Ptr<detail::PoseGraph> init = readG2OFile(filename);
 
-    pgWithMST->initializePosesWithMST();
     pgWithMSTAndOptimizer->initializePosesWithMST();
-
-    auto initialEnergy = init->calcEnergy();
-    auto AfterMSTEnergy = pgWithMST->calcEnergy();
 
     // You may change logging level to view detailed optimization report
     // For example, set env. variable like this: OPENCV_LOG_LEVEL=INFO
@@ -199,28 +194,15 @@ TEST(PoseGraphMST, optimization)
 
     EXPECT_TRUE(r1.found);
     EXPECT_TRUE(r2.found);
+    EXPECT_LE(r2.energy, 1.47723e+06);
+    // Allow small tolerance due to optimization differences; final energy/iterations are effectively the same
+    EXPECT_LE(std::abs(r1.energy - r2.energy), 1e-2);
+    ASSERT_LE(std::abs(r1.iters - r2.iters), 1);
+
 
     // Add the "--test_debug" to arguments to see resulting pose graph nodes positions
     if (cvtest::debugLevel > 0)
     {
-        // Write OBJ for MST-initialized pose graph
-        {
-            std::string fname = "pg_with_mst.obj";
-            std::fstream of(fname, std::fstream::out);
-            std::vector<size_t> ids = pgWithMST->getNodesIds();
-            for (const size_t& id : ids)
-            {
-                Point3d d = pgWithMST->getNodePose(id).translation();
-                of << "v " << d.x << " " << d.y << " " << d.z << std::endl;
-            }
-            size_t esz = pgWithMST->getNumEdges();
-            for (size_t i = 0; i < esz; i++)
-            {
-                size_t sid = pgWithMST->getEdgeStart(i), tid = pgWithMST->getEdgeEnd(i);
-                of << "l " << sid + 1 << " " << tid + 1 << std::endl;
-            }
-            of.close();
-        }
         // Write OBJ for MST-initialized pose graph with optimizer
         {
             std::string fname = "pg_with_mst_and_optimizer.obj";
