@@ -17,18 +17,21 @@ namespace cv
 namespace detail
 {
 
+// represents an edge in a graph for MST computation
 struct CV_EXPORTS MSTEdge
 {
     size_t source, target;
     double weight;
 };
 
+// builds a MST using Prim's algorithm
 CV_EXPORTS std::vector<MSTEdge> buildMSTPrim(
     const std::vector<size_t>& nodes, // Should be 0-based
     const std::vector<MSTEdge>& edges,
     size_t root = 0
 );
 
+// builds a MST using Kruskal's algorithm
 CV_EXPORTS std::vector<MSTEdge> buildMSTKruskal(
     const std::vector<size_t>& nodes,
     const std::vector<MSTEdge>& edges

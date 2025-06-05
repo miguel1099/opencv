@@ -486,8 +486,9 @@ double PoseGraphImpl::calculateWeight(const PoseGraphImpl::Edge& e) const
     cv::Matx33d R = e.pose.q.toRotMat3x3(cv::QUAT_ASSUME_UNIT);
     cv::Vec3d rvec;
     cv::Rodrigues(R, rvec);
-    double rotationAngle = cv::norm(rvec); // angle in radians
+    double rotationAngle = cv::norm(rvec);
 
+    // empirically determined
     double lambda = 0.485;
     double weight = translationNorm + lambda * rotationAngle;
 

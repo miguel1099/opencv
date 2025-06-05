@@ -36,7 +36,7 @@ namespace
     };
 
     bool weightComparator(const cv::detail::MSTEdge& a, const cv::detail::MSTEdge& b) {
-        return a.weight < b.weight;
+        return a.weight <= b.weight;
     }
 } // unamed namespace
 
@@ -88,8 +88,9 @@ std::vector<cv::detail::MSTEdge> buildMSTPrim(const std::vector<size_t>& nodes,
 
     std::vector<std::vector<cv::detail::MSTEdge>> adj(n);
     for (const auto& e : edges) {
-        size_t u = nodeToIdx[e.source];
+        size_t u = nodeToIdx[e.source], v = nodeToIdx[e.target];
         adj[u].push_back({e.source, e.target, e.weight});
+        adj[v].push_back({e.target, e.source, e.weight});
     }
 
     // Min-heap: (weight, from, to)

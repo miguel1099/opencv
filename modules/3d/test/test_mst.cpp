@@ -46,7 +46,8 @@ TEST_P(MST, checkCorrectness)
     for (const auto& edge : expectedEdges)
     {
         auto it = std::find_if(mstEdges.begin(), mstEdges.end(), [&edge](const detail::MSTEdge& e) {
-            return (e.source == edge.source && e.target == edge.target);
+            return (e.source == edge.source && e.target == edge.target ||
+                    e.source == edge.target && e.target == edge.source);
         });
         EXPECT_TRUE(it != mstEdges.end()) << "Missing expected edge: "
             << edge.source << " -> " << edge.target;
@@ -144,9 +145,7 @@ const MSTParamType mst_graphs[] =
         {0, 1, 2, 3},
         {
             {0, 1, 1.0}, {0, 2, 2.0}, {0, 3, 3.0},
-            {1, 0, 1.0}, {1, 2, 2.0}, {1, 3, 3.0},
-            {2, 0, 2.0}, {2, 1, 2.0}, {2, 3, 3.0},
-            {3, 0, 3.0}, {3, 1, 3.0}, {3, 2, 3.0}
+            {1, 2, 2.0}, {1, 3, 3.0}, {2, 3, 3.0},
         },
         {
             {0, 1, 1.0}, {0, 2, 2.0}, {0, 3, 3.0}
@@ -157,9 +156,7 @@ const MSTParamType mst_graphs[] =
         {0, 1, 2, 3},
         {
             {0, 1, 1.0}, {0, 2, 2.0}, {0, 3, 3.0},
-            {1, 0, 1.0}, {1, 2, 2.0}, {1, 3, 3.0},
-            {2, 0, 2.0}, {2, 1, 2.0}, {2, 3, 3.0},
-            {3, 0, 3.0}, {3, 1, 3.0}, {3, 2, 3.0}
+            {1, 2, 2.0}, {1, 3, 3.0}, {2, 3, 3.0},
         },
         {
             {0, 1, 1.0}, {0, 2, 2.0}, {0, 3, 3.0}
