@@ -4,225 +4,321 @@
 
 #include "test_precomp.hpp"
 #include <opencv2/3d/detail/mst.hpp>
+#include <algorithm>
+#include <string>
 
 namespace opencv_test {
 namespace {
 
 using namespace cv;
 
-typedef tuple<bool /*isPrim (or Kruskal)*/,
+typedef tuple< int /*MSTalgorithm*/,
               std::vector<size_t> /*nodes*/,
               std::vector<detail::MSTEdge>/*edges*/,
-              std::vector<detail::MSTEdge>/*expectedEdges*/,
-              bool /*isConnected*/
+              std::vector<detail::MSTEdge>/*expectedEdges*/
              > MSTParamType;
 typedef testing::TestWithParam<MSTParamType> MST;
-TEST_P(MST, Graphs)
+
+TEST_P(MST, checkCorrectness)
 {
-    const int isPrim = get<0>(GetParam());
+    const int algorithm = get<0>(GetParam());
     const std::vector<size_t>& nodes = get<1>(GetParam());
     const std::vector<detail::MSTEdge>& edges = get<2>(GetParam());
     const std::vector<detail::MSTEdge>& expectedEdges = get<3>(GetParam());
-    const bool isConnected = get<4>(GetParam());
 
     std::vector<detail::MSTEdge> mstEdges;
-    if (isPrim)
-        mstEdges = detail::buildMSTPrim(nodes, edges, 0);
-    else
-        mstEdges = detail::buildMSTKruskal(nodes, edges);
 
-    // Should have N-1 edges in the MST (if it's connected)
-    if (isConnected) {
-        EXPECT_EQ(mstEdges.size(), nodes.size() - 1);
+    switch (algorithm) {
+        case 0: /* Prim */
+            // Select first node for root
+            mstEdges = detail::buildMSTPrim(nodes, edges, nodes[0]);
+            break;
+
+        case 1: /* Kruskal*/
+            mstEdges = detail::buildMSTKruskal(nodes, edges);
+            break;
+
+        default:
+            FAIL() << "Unknown selected MST algorithm: " << algorithm;
     }
 
-    // Check that the MST contains the expected edges
+    EXPECT_EQ(mstEdges.size(), expectedEdges.size());
     for (const auto& edge : expectedEdges)
     {
-        auto it = std::find_if(mstEdges.begin(), mstEdges.end(),
-                               [&edge](const detail::MSTEdge& e) {
-                                   return (e.source == edge.source && e.target == edge.target) ||
-                                          (e.source == edge.target && e.target == edge.source);
-                               });
-        EXPECT_NE(it, mstEdges.end()) << "Edge not found in PrimMST: " << edge.source << " -> " << edge.target;
+        auto it = std::find_if(mstEdges.begin(), mstEdges.end(), [&edge](const detail::MSTEdge& e) {
+            return (e.source == edge.source && e.target == edge.target);
+        });
+        EXPECT_TRUE(it != mstEdges.end()) << "Missing expected edge: "
+            << edge.source << " -> " << edge.target;
     }
 }
 
-// TODO: More test cases
-const MSTParamType mst_params[] =
+const MSTParamType mst_graphs[] =
 {
-    // Prim
-
     // Small Graph
-    MSTParamType(true, {0, 1, 2, 3},
+    MSTParamType(0,
+        {0, 1, 2, 3},
         {
             {0, 1, 1.0}, {0, 2, 2.0}, {1, 2, 1.5}, {1, 3, 2.5}, {2, 3, 1.0}
         },
         {
             {0, 1, 1.0}, {1, 2, 1.5}, {2, 3, 1.0}
-        },
-        true
-    ),
-    // Disconnected Graph
-    MSTParamType(true, {0, 1, 2},
-        {
-            {0, 1, 1.0}
-        },
-        {
-            {0, 1, 1.0}
-        },
-        false
-    ),
-    // Single Node
-    MSTParamType(true, {0},
-        {
-
-        },
-        {
-
-        },
-        true
-    ),
-    // 2 Nodes, 1 Edge
-    MSTParamType(true, {0, 1},
-        {
-            {0, 1, 42.0}
-        },
-        {
-            {0, 1, 42.0}
-        },
-        true
-    ),
-    // Dense graph (clique)
-    MSTParamType(true, {0, 1, 2, 3},
-        {
-            {0, 1, 1.0}, {0, 2, 2.0}, {0, 3, 3.0},
-            {1, 2, 1.5}, {1, 3, 2.5}, {2, 3, 1.0}
-        },
-        {
-            {0, 1, 1.0}, {2, 3, 1.0}, {1, 2, 1.5}
-        },
-        true
+        }
     ),
 
-    // Sparse but connected
-    MSTParamType(true, {0, 1, 2, 3},
-        {
-            {0, 1, 1.0}, {1, 2, 2.0}, {2, 3, 3.0}
-        },
-        {
-            {0, 1, 1.0}, {1, 2, 2.0}, {2, 3, 3.0}
-        },
-        true
-    ),
-
-    // Multiple disconnected components
-    MSTParamType(true, {0, 1, 2, 3, 4},
-        {
-            {0, 1, 1.0}, {2, 3, 1.0}
-        },
-        {
-            {0, 1, 1.0}
-        },
-        false
-    ),
-
-    // Kruskal
-
-    // Small Graph
-    MSTParamType(false, {0, 1, 2, 3},
+    MSTParamType(1,
+        {0, 1, 2, 3},
         {
             {0, 1, 1.0}, {0, 2, 2.0}, {1, 2, 1.5}, {1, 3, 2.5}, {2, 3, 1.0}
         },
         {
             {0, 1, 1.0}, {1, 2, 1.5}, {2, 3, 1.0}
-        },
-        true
+        }
     ),
+
     // Disconnected Graph
-    MSTParamType(false, {0, 1, 2},
+    MSTParamType(0,
+        {0, 1, 2, 3},
+        {
+            {0, 1, 1.0}, {2, 3, 2.0}
+        },
         {
             {0, 1, 1.0}
-        },
-        {
-
-        },
-        false
+        }
     ),
-    // Single Node
-    MSTParamType(false, {0},
-        {
 
+    MSTParamType(1,
+        {0, 1, 2, 3},
+        {
+            {0, 1, 1.0}, {2, 3, 2.0}
         },
         {
-
-        },
-        true
+            {0, 1, 1.0}, {2, 3, 2.0}
+        }
     ),
+
+    // Fully Disconnected
+    MSTParamType(0,
+        {0, 1, 2, 3, 4, 5}, 
+        {
+
+        },
+        {
+
+        }
+    ),
+
+    MSTParamType(1,
+        {0, 1, 2, 3, 4, 5},
+        {
+
+        },
+        {
+
+        }
+    ),
+
     // 2 Nodes, 1 Edge
-    MSTParamType(false, {0, 1},
+    MSTParamType(0,
+        {0, 1},
         {
             {0, 1, 42.0}
         },
         {
             {0, 1, 42.0}
-        },
-        true
+        }
     ),
-    // Dense graph (clique)
-    MSTParamType(false, {0, 1, 2, 3},
+
+    MSTParamType(1,
+        {0, 1},
+        {
+            {0, 1, 42.0}
+        },
+        {
+            {0, 1, 42.0}
+        }
+    ),
+
+    // Dense graph (clique) 
+    MSTParamType(0,
+        {0, 1, 2, 3},
         {
             {0, 1, 1.0}, {0, 2, 2.0}, {0, 3, 3.0},
-            {1, 2, 1.5}, {1, 3, 2.5}, {2, 3, 1.0}
+            {1, 0, 1.0}, {1, 2, 2.0}, {1, 3, 3.0},
+            {2, 0, 2.0}, {2, 1, 2.0}, {2, 3, 3.0},
+            {3, 0, 3.0}, {3, 1, 3.0}, {3, 2, 3.0}
         },
         {
-            {0, 1, 1.0}, {2, 3, 1.0}, {1, 2, 1.5}
-        },
-        true
+            {0, 1, 1.0}, {0, 2, 2.0}, {0, 3, 3.0}
+        }
     ),
 
-    // Sparse but connected
-    MSTParamType(false, {0, 1, 2, 3},
+    MSTParamType(1,
+        {0, 1, 2, 3},
         {
-            {0, 1, 1.0}, {1, 2, 2.0}, {2, 3, 3.0}
+            {0, 1, 1.0}, {0, 2, 2.0}, {0, 3, 3.0},
+            {1, 0, 1.0}, {1, 2, 2.0}, {1, 3, 3.0},
+            {2, 0, 2.0}, {2, 1, 2.0}, {2, 3, 3.0},
+            {3, 0, 3.0}, {3, 1, 3.0}, {3, 2, 3.0}
         },
         {
-            {0, 1, 1.0}, {1, 2, 2.0}, {2, 3, 3.0}
-        },
-        true
+            {0, 1, 1.0}, {0, 2, 2.0}, {0, 3, 3.0}
+        }
     ),
 
-    // Multiple disconnected components
-    MSTParamType(false, {0, 1, 2, 3, 4},
+    // Sparse
+    MSTParamType(0,
+        {0, 1, 2, 3},
         {
-            {0, 1, 1.0}, {2, 3, 1.0}
+            {0, 1, 1.0}, {1, 2, 2.0}, {1, 3, 3.0}
         },
         {
-            {0, 1, 1.0}
+            {0, 1, 1.0}, {1, 2, 2.0}, {1, 3, 3.0}
+        }
+    ),
+
+    MSTParamType(1,
+        {0, 1, 2, 3},
+        {
+            {0, 1, 1.0}, {1, 2, 2.0}, {1, 3, 3.0}
         },
-        false
+        {
+            {0, 1, 1.0}, {1, 2, 2.0}, {1, 3, 3.0}
+        }
+    ),
+
+    // Weight Floating point check
+    MSTParamType(0,
+        {0, 1, 2},
+        {
+            {0, 1, 1.000001}, {1, 2, 1.000002}, {0, 2, 1.000003}
+        },
+        {
+            {0, 1, 1.000001}, {1, 2, 1.000002}
+        }
+    ),
+
+    MSTParamType(1,
+        {0, 1, 2},
+        {
+            {0, 1, 1.000001}, {1, 2, 1.000002}, {0, 2, 1.000003}
+        },
+        {
+            {0, 1, 1.000001}, {1, 2, 1.000002}
+        }
+    ),
+
+    // 0 or ~0 weight valuess
+    MSTParamType(0,
+        {0, 1, 2},
+        {
+            {0, 1, 0.0}, {1, 2, 1e-9}, {0, 2, 1.0}
+        },
+        {
+            {0, 1, 0.0}, {1, 2, 1e-9}
+        }
+    ),
+
+    MSTParamType(0,
+        {0, 1, 2},
+        {
+            {0, 1, 0.0}, {1, 2, 1e-9}, {0, 2, 1.0}
+        },
+        {
+            {0, 1, 0.0}, {1, 2, 1e-9}
+        }
+    ),
+
+    // Duplicate edges (picks the one with the smallest weight)
+    MSTParamType(0,
+        {0, 1, 2},
+        {
+            {0, 1, 3.0}, {0, 1, 1.0}, {1, 2, 2.0}
+        },
+        {
+            {0, 1, 1.0}, {1, 2, 2.0}
+        }
+    ),
+
+    MSTParamType(1,
+        {0, 1, 2},
+        {
+            {0, 1, 3.0}, {0, 1, 1.0}, {1, 2, 2.0}
+        },
+        {
+            {0, 1, 1.0}, {1, 2, 2.0}
+        }
+    ),
+
+    // Negative weights
+    MSTParamType(0,
+        {0, 1, 2},
+        {
+            {0, 1, -1.0}, {1, 2, -2.0}, {0, 2, -3.0}
+        },
+        {
+            {0, 1, -1.0}, {0, 2, -3.0}
+        }
+    ),
+
+    MSTParamType(1,
+        {0, 1, 2},
+        {
+            {0, 1, -1.0}, {1, 2, -2.0}, {0, 2, -3.0}
+        },
+        {
+            {0, 2, -3.0}, {1, 2, -2.0}
+        }
     ),
 };
 
 inline static std::string MST_name_printer(const testing::TestParamInfo<MST::ParamType>& info)
-{ // TODO: better naming!!!
+{
     std::ostringstream os;
-    const bool isPrim = get<0>(info.param);
+    const auto& algorithm = get<0>(info.param);
     const auto& nodes = get<1>(info.param);
     const auto& edges = get<2>(info.param);
     const auto& expectedEdges = get<3>(info.param);
-    const auto& isConnected = get<4>(info.param);
 
-    os << "MST_" << (isPrim ? "Prim" : "Kruskal") << "_";
-    os << "Nodes_" << nodes.size() << "_";
-    os << "Edges_" << edges.size() << "_";
-    os << "ExpectedEdges_" << expectedEdges.size();
-    os << "isConnected_" << isConnected;
+    os << "TestCase_" << info.index << "_";
+    switch (algorithm)
+    {
+    case 0: os << "Prim"; break;
+    case 1: os << "Kruskal"; break;
+    default: os << "Unknown algorithm"; break;
+    }
+    os << "_Nodes_" << nodes.size();
+    os << "_Edges_" << edges.size();
+    os << "_ExpectedEdges_" << expectedEdges.size();
 
     return os.str();
 }
 
-INSTANTIATE_TEST_CASE_P(/**/, MST, testing::ValuesIn(mst_params), MST_name_printer);
+INSTANTIATE_TEST_CASE_P(/**/, MST, testing::ValuesIn(mst_graphs), MST_name_printer);
+
+TEST(MSTstress, LargeGraph)
+{
+
+    const size_t numNodes = 1000;
+    std::vector<size_t> nodes(numNodes);
+    for (size_t i = 0; i < numNodes; i++)
+        nodes[i] = i;
+
+    std::vector<detail::MSTEdge> edges;
+
+    for (size_t i = 0; i < numNodes * 3; ++i)
+        edges.push_back({nodes[i], nodes[i+1], static_cast<double>(i + 1)});
+
+    // Add extra edges for complexity
+    for (size_t i = 0; i < numNodes - 10; i += 10)
+        edges.push_back({nodes[i], nodes[i + 10],  static_cast<double>(i)});
+
+    std::vector<detail::MSTEdge> primMST = detail::buildMSTPrim(nodes, edges, nodes[0]);
+    std::vector<detail::MSTEdge> kruskalMST = detail::buildMSTKruskal(nodes, edges);
+
+    EXPECT_EQ(primMST.size(), numNodes - 1);
+    EXPECT_EQ(kruskalMST.size(), numNodes - 1);
+}
 
 }} // namespace
 
